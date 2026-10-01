@@ -366,7 +366,7 @@ async function subirFotografias() {
             `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${nombreSeguro}.${extension}`;
 
         const ruta =
-            `reparaciones/${numeroReparacion.value}/${nombreArchivo}`;
+            `private/reparaciones/${numeroReparacion.value}/${nombreArchivo}`;
 
         const { error } = await supabaseClient
             .storage
