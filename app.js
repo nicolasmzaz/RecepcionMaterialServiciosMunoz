@@ -1,159 +1,344 @@
 const SUPABASE_URL = "https://rlcbrlrkoxhxnncurjyc.supabase.co";
-
 const SUPABASE_PUBLISHABLE_KEY =
     "sb_publishable_xQBEOI6vDBRKsGh2w7fXAA_u5mY7KVk";
-
 const supabaseClient = window.supabase.createClient(
     SUPABASE_URL,
     SUPABASE_PUBLISHABLE_KEY
 );
-
 let usuarioActual = "";
 let archivosFotos = [];
-
 const loginScreen =
     document.getElementById("loginScreen");
-
 const appScreen =
     document.getElementById("appScreen");
-
 const dashboardScreen =
     document.getElementById("dashboardScreen");
-
 const receptionScreen =
     document.getElementById("receptionScreen");
-
 const presupuestosScreen =
     document.getElementById("presupuestosScreen");
-
 const presupuestosButton =
     document.getElementById("presupuestosButton");
-
 const volverDashboardPresupuestos =
     document.getElementById("volverDashboardPresupuestos");
-
 const actualizarPresupuestos =
     document.getElementById("actualizarPresupuestos");
-
 const listaPresupuestos =
     document.getElementById("listaPresupuestos");
-
 const mensajePresupuestos =
     document.getElementById("mensajePresupuestos");
-
 const detallePresupuesto =
     document.getElementById("detallePresupuesto");
-
 const contenidoDetallePresupuesto =
     document.getElementById("contenidoDetallePresupuesto");
-
 const cerrarDetallePresupuesto =
     document.getElementById("cerrarDetallePresupuesto");
 
+let clientesScreen = null;
+let buscarScreen = null;
+let administracionScreen = null;
+
+function crearPantallasExtra() {
+    if (clientesScreen) return;
+    const contenedor = document.createElement("div");
+    contenedor.innerHTML = `
+        <section class="reception-screen" id="clientesScreen" style="display:none;">
+            <div class="page-header">
+                <div><h2>Clientes</h2><p>Consultar clientes y sus reparaciones</p></div>
+                <button type="button" id="volverDashboardClientes">VOLVER</button>
+            </div>
+            <div class="form-section">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
+                    <div><h3 style="margin-bottom:4px;">Clientes registrados</h3><p style="margin:0;">Los clientes se obtienen automáticamente de las recepciones.</p></div>
+                    <button type="button" class="secondary-button" id="actualizarClientes">ACTUALIZAR</button>
+                </div>
+                <div id="listaClientes" style="margin-top:20px;"></div>
+                <p id="mensajeClientes"></p>
+            </div>
+            <div class="form-section" id="detalleCliente" style="display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <h3>Ficha del cliente</h3><button type="button" class="secondary-button" id="cerrarDetalleCliente">CERRAR</button>
+                </div>
+                <div id="contenidoDetalleCliente" style="margin-top:18px;"></div>
+            </div>
+        </section>
+        <section class="reception-screen" id="buscarScreen" style="display:none;">
+            <div class="page-header">
+                <div><h2>Buscar</h2><p>Buscar reparaciones y materiales</p></div>
+                <button type="button" id="volverDashboardBuscar">VOLVER</button>
+            </div>
+            <div class="form-section">
+                <h3>Buscar reparación</h3>
+                <div class="form-grid">
+                    <div class="form-field"><label for="campoBuscar">Número, cliente, teléfono, material, marca o modelo</label><input type="text" id="campoBuscar" placeholder="Escribe para buscar..."></div>
+                    <div class="form-field" style="align-self:end;"><button type="button" class="secondary-button" id="limpiarBusqueda">LIMPIAR</button></div>
+                </div>
+                <div id="resultadosBusqueda" style="margin-top:20px;"></div><p id="mensajeBusqueda"></p>
+            </div>
+        </section>
+        <section class="reception-screen" id="administracionScreen" style="display:none;">
+            <div class="page-header">
+                <div><h2>Administración</h2><p>Usuarios y configuración de la aplicación</p></div>
+                <button type="button" id="volverDashboardAdministracion">VOLVER</button>
+            </div>
+            <div class="form-section">
+                <h3>Configuración</h3>
+                <div class="form-grid">
+                    <div class="form-field"><label>Empresa</label><input type="text" id="configEmpresa" value="SERVICIOS MUÑOZ"></div>
+                    <div class="form-field"><label>IVA (%)</label><input type="number" id="configIva" value="21" min="0" step="0.01"></div>
+                </div>
+                <button type="button" class="primary-button" id="guardarConfiguracion" style="margin-top:20px;">GUARDAR CONFIGURACIÓN</button><p id="mensajeAdministracion"></p>
+            </div>
+            <div class="form-section">
+                <h3>Usuarios</h3>
+                <p>Desde aquí puedes añadir trabajadores y administradores.</p>
+                <div class="form-grid">
+                    <div class="form-field"><label for="nuevoUsuarioAdmin">Usuario</label><input type="text" id="nuevoUsuarioAdmin" autocomplete="off" placeholder="Ej. juan"></div>
+                    <div class="form-field"><label for="nuevaPasswordAdmin">Contraseña</label><input type="password" id="nuevaPasswordAdmin" autocomplete="new-password" placeholder="Contraseña"></div>
+                    <div class="form-field"><label for="nuevoRolAdmin">Tipo de usuario</label><select id="nuevoRolAdmin"><option value="trabajador">Trabajador</option><option value="administrador">Administrador</option></select></div>
+                </div>
+                <button type="button" class="primary-button" id="crearUsuarioAdmin" style="margin-top:20px;">AÑADIR USUARIO</button>
+                <p id="mensajeUsuariosAdmin"></p>
+                <div id="listaUsuariosAdmin" style="margin-top:20px;"></div>
+            </div>
+            <div class="form-section">
+                <h3>Usuario actual</h3><p><strong>Usuario:</strong> <span id="adminUsuarioActual"></span></p>
+            </div>
+        </section>`;
+    while (contenedor.firstElementChild) appScreen.appendChild(contenedor.firstElementChild);
+    clientesScreen = document.getElementById("clientesScreen");
+    buscarScreen = document.getElementById("buscarScreen");
+    administracionScreen = document.getElementById("administracionScreen");
+    document.getElementById("volverDashboardClientes").addEventListener("click", () => { document.getElementById("detalleCliente").style.display = "none"; mostrarPantalla(dashboardScreen); });
+    document.getElementById("actualizarClientes").addEventListener("click", cargarClientes);
+    document.getElementById("cerrarDetalleCliente").addEventListener("click", () => { document.getElementById("detalleCliente").style.display = "none"; });
+    document.getElementById("volverDashboardBuscar").addEventListener("click", () => mostrarPantalla(dashboardScreen));
+    document.getElementById("campoBuscar").addEventListener("input", ejecutarBusqueda);
+    document.getElementById("limpiarBusqueda").addEventListener("click", () => { document.getElementById("campoBuscar").value = ""; ejecutarBusqueda(); });
+    document.getElementById("volverDashboardAdministracion").addEventListener("click", () => mostrarPantalla(dashboardScreen));
+    document.getElementById("guardarConfiguracion").addEventListener("click", guardarConfiguracion);
+    document.getElementById("crearUsuarioAdmin").addEventListener("click", crearUsuarioAdmin);
+}
+
+async function gestionarUsuariosAdmin(accion, datos = {}) {
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) {
+        throw new Error("La sesión ha caducado. Vuelve a iniciar sesión.");
+    }
+    const respuesta = await fetch(`${SUPABASE_URL}/functions/v1/gestionar-usuarios`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_PUBLISHABLE_KEY,
+            "Authorization": `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ accion, ...datos })
+    });
+    const resultado = await respuesta.json().catch(() => ({}));
+    if (!respuesta.ok) {
+        throw new Error(resultado.error || resultado.message || "No se ha podido completar la operación.");
+    }
+    return resultado;
+}
+
+async function cargarUsuariosAdmin() {
+    const lista = document.getElementById("listaUsuariosAdmin");
+    const mensaje = document.getElementById("mensajeUsuariosAdmin");
+    if (!lista || !mensaje) return;
+    lista.innerHTML = "";
+    mensaje.textContent = "Cargando usuarios...";
+    try {
+        const resultado = await gestionarUsuariosAdmin("listar");
+        mensaje.textContent = "";
+        if (!resultado.usuarios?.length) {
+            lista.innerHTML = "<p>No hay usuarios registrados.</p>";
+            return;
+        }
+        resultado.usuarios.forEach(usuario => {
+            const tarjeta = document.createElement("div");
+            tarjeta.className = "reparacion-card";
+            tarjeta.style.marginBottom = "10px";
+            const rolTexto = usuario.rol === "administrador" ? "Administrador" : "Trabajador";
+            tarjeta.innerHTML = `
+                <div>
+                    <strong>${escaparHTML(usuario.usuario || "")}</strong>
+                    <div style="margin-top:5px;">${rolTexto}</div>
+                    <div style="margin-top:5px;">${usuario.activo ? "Activo" : "Desactivado"}</div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+                    <button type="button" class="secondary-button btn-cambiar-rol">CAMBIAR ROL</button>
+                    <button type="button" class="secondary-button btn-eliminar-usuario">ELIMINAR</button>
+                </div>`;
+            tarjeta.querySelector(".btn-cambiar-rol").addEventListener("click", async () => {
+                const nuevoRol = usuario.rol === "administrador" ? "trabajador" : "administrador";
+                if (!confirm(`¿Cambiar ${usuario.usuario} a ${nuevoRol}?`)) return;
+                try {
+                    await gestionarUsuariosAdmin("cambiar_rol", { id: usuario.id, rol: nuevoRol });
+                    await cargarUsuariosAdmin();
+                } catch (error) {
+                    mensaje.textContent = error.message;
+                    mensaje.style.color = "#b91c1c";
+                }
+            });
+            tarjeta.querySelector(".btn-eliminar-usuario").addEventListener("click", async () => {
+                if (!confirm(`¿Eliminar al usuario ${usuario.usuario}?`)) return;
+                try {
+                    await gestionarUsuariosAdmin("eliminar", { id: usuario.id });
+                    await cargarUsuariosAdmin();
+                } catch (error) {
+                    mensaje.textContent = error.message;
+                    mensaje.style.color = "#b91c1c";
+                }
+            });
+            lista.appendChild(tarjeta);
+        });
+    } catch (error) {
+        mensaje.textContent = error.message;
+        mensaje.style.color = "#b91c1c";
+    }
+}
+
+async function crearUsuarioAdmin() {
+    const usuarioInputAdmin = document.getElementById("nuevoUsuarioAdmin");
+    const passwordInputAdmin = document.getElementById("nuevaPasswordAdmin");
+    const rolInputAdmin = document.getElementById("nuevoRolAdmin");
+    const mensaje = document.getElementById("mensajeUsuariosAdmin");
+    const boton = document.getElementById("crearUsuarioAdmin");
+    if (!usuarioInputAdmin || !passwordInputAdmin || !rolInputAdmin || !mensaje || !boton) return;
+    const usuario = usuarioInputAdmin.value.trim();
+    const password = passwordInputAdmin.value;
+    const rol = rolInputAdmin.value;
+    mensaje.style.color = "";
+    mensaje.textContent = "";
+    if (!usuario || !password) {
+        mensaje.textContent = "Introduce usuario y contraseña.";
+        return;
+    }
+    if (password.length < 6) {
+        mensaje.textContent = "La contraseña debe tener al menos 6 caracteres.";
+        return;
+    }
+    boton.disabled = true;
+    boton.textContent = "CREANDO...";
+    try {
+        await gestionarUsuariosAdmin("crear", { usuario, password, rol });
+        usuarioInputAdmin.value = "";
+        passwordInputAdmin.value = "";
+        rolInputAdmin.value = "trabajador";
+        mensaje.style.color = "#15803d";
+        mensaje.textContent = "Usuario creado correctamente.";
+        await cargarUsuariosAdmin();
+    } catch (error) {
+        mensaje.style.color = "#b91c1c";
+        mensaje.textContent = error.message;
+    } finally {
+        boton.disabled = false;
+        boton.textContent = "AÑADIR USUARIO";
+    }
+}
+
+function crearTarjetaResultado(reparacion) {
+    const tarjeta = document.createElement("div"); tarjeta.className = "reparacion-card";
+    tarjeta.innerHTML = `<div><strong>${escaparHTML(reparacion.numero_reparacion || "Sin número")}</strong><p>${escaparHTML(reparacion.cliente || "Sin cliente")}</p><p>${escaparHTML(reparacion.tipo_material || "Sin material")} ${reparacion.marca ? "· " + escaparHTML(reparacion.marca) : ""}</p></div><div style="text-align:right;"><p>${escaparHTML(reparacion.estado_reparacion || "Pendiente")}</p><button type="button" class="secondary-button">VER DETALLE</button></div>`;
+    tarjeta.querySelector("button").addEventListener("click", () => { mostrarPantalla(reparacionesScreen); mostrarDetalleReparacion(reparacion); }); return tarjeta;
+}
+async function obtenerTodasLasReparaciones() {
+    const { data, error } = await supabaseClient.from("recepciones").select("*").order("created_at", { ascending: false });
+    if (error) throw error; return data || [];
+}
+async function cargarClientes() {
+    const lista=document.getElementById("listaClientes"), mensaje=document.getElementById("mensajeClientes"), detalle=document.getElementById("detalleCliente");
+    lista.innerHTML=""; mensaje.textContent="Cargando clientes..."; detalle.style.display="none";
+    try {
+        const reparaciones=await obtenerTodasLasReparaciones(), mapa=new Map();
+        reparaciones.forEach(r=>{const nombre=(r.cliente||"Sin cliente").trim()||"Sin cliente", clave=`${nombre.toLowerCase()}|${(r.telefono||"").trim()}`; if(!mapa.has(clave)) mapa.set(clave,{cliente:nombre,telefono:r.telefono||"",email:r.email||"",reparaciones:[]}); const x=mapa.get(clave); x.email=x.email||r.email||""; x.reparaciones.push(r);});
+        const clientes=[...mapa.values()].sort((a,b)=>a.cliente.localeCompare(b.cliente,"es"));
+        if(!clientes.length){lista.innerHTML="<p>No hay clientes registrados.</p>"; mensaje.textContent=""; return;}
+        clientes.forEach(cliente=>{const tarjeta=document.createElement("div"); tarjeta.className="reparacion-card"; tarjeta.innerHTML=`<div><strong>${escaparHTML(cliente.cliente)}</strong><p>${escaparHTML(cliente.telefono||"Sin teléfono")}</p><p>${escaparHTML(cliente.email||"Sin email")}</p></div><div style="text-align:right;"><p><strong>${cliente.reparaciones.length}</strong> reparación${cliente.reparaciones.length===1?"":"es"}</p><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;"><button type="button" class="secondary-button btn-ver-cliente">VER REPARACIONES</button><button type="button" class="secondary-button btn-editar-cliente">EDITAR CLIENTE</button></div></div>`; tarjeta.querySelector(".btn-ver-cliente").addEventListener("click",()=>mostrarDetalleCliente(cliente)); tarjeta.querySelector(".btn-editar-cliente").addEventListener("click",()=>editarCliente(cliente)); lista.appendChild(tarjeta);});
+        mensaje.textContent=`${clientes.length} cliente${clientes.length===1?"":"s"} encontrado${clientes.length===1?"":"s"}.`;
+    } catch(error){console.error(error);mensaje.textContent=error.message||"No se han podido cargar los clientes.";}
+}
+function mostrarDetalleCliente(cliente){const detalle=document.getElementById("detalleCliente"), contenido=document.getElementById("contenidoDetalleCliente"); contenido.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;"><button type="button" class="primary-button" id="editarClienteDesdeDetalle">EDITAR CLIENTE</button></div><p><strong>Cliente:</strong> ${escaparHTML(cliente.cliente)}</p><p><strong>Teléfono:</strong> ${escaparHTML(cliente.telefono||"-")}</p><p><strong>Email:</strong> ${escaparHTML(cliente.email||"-")}</p><hr><h4 style="margin-top:18px;">Reparaciones del cliente</h4>`; document.getElementById("editarClienteDesdeDetalle").addEventListener("click",()=>editarCliente(cliente)); cliente.reparaciones.forEach(r=>contenido.appendChild(crearTarjetaResultado(r))); detalle.style.display="block"; detalle.scrollIntoView({behavior:"smooth",block:"start"});}
+function editarCliente(cliente){const detalle=document.getElementById("detalleCliente"), contenido=document.getElementById("contenidoDetalleCliente"); contenido.innerHTML=`<h4 style="margin-top:0;">Editar datos del cliente</h4><div class="form-grid"><div class="form-field"><label for="editarClienteNombre">Nombre</label><input type="text" id="editarClienteNombre" value="${escaparHTML(cliente.cliente||"")}"></div><div class="form-field"><label for="editarClienteTelefono">Teléfono</label><input type="tel" id="editarClienteTelefono" value="${escaparHTML(cliente.telefono||"")}"></div><div class="form-field"><label for="editarClienteEmail">Email</label><input type="email" id="editarClienteEmail" value="${escaparHTML(cliente.email||"")}"></div></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;"><button type="button" class="primary-button" id="guardarDatosCliente">GUARDAR CAMBIOS</button><button type="button" class="secondary-button" id="cancelarEdicionCliente">CANCELAR</button></div><p id="mensajeEdicionCliente" style="margin-top:15px;"></p>`; document.getElementById("guardarDatosCliente").addEventListener("click",()=>guardarDatosCliente(cliente)); document.getElementById("cancelarEdicionCliente").addEventListener("click",()=>mostrarDetalleCliente(cliente)); detalle.style.display="block"; detalle.scrollIntoView({behavior:"smooth",block:"start"});}
+async function guardarDatosCliente(cliente){const nombre=document.getElementById("editarClienteNombre").value.trim(), telefono=document.getElementById("editarClienteTelefono").value.trim(), email=document.getElementById("editarClienteEmail").value.trim(), mensaje=document.getElementById("mensajeEdicionCliente"), boton=document.getElementById("guardarDatosCliente"); if(!nombre){mensaje.textContent="El nombre del cliente es obligatorio.";mensaje.style.color="#dc2626";return;} boton.disabled=true; boton.textContent="GUARDANDO..."; mensaje.textContent=""; try{for(const reparacion of cliente.reparaciones){const {error}=await supabaseClient.from("recepciones").update({cliente:nombre,telefono,email}).eq("id",reparacion.id);if(error)throw error;Object.assign(reparacion,{cliente:nombre,telefono,email});} cliente.cliente=nombre; cliente.telefono=telefono; cliente.email=email; mensaje.textContent="Datos del cliente actualizados correctamente."; mensaje.style.color="#15803d"; await cargarClientes(); document.getElementById("detalleCliente").style.display="none";}catch(error){console.error(error);mensaje.textContent=error.message||"No se han podido actualizar los datos del cliente.";mensaje.style.color="#dc2626";}finally{boton.disabled=false;boton.textContent="GUARDAR CAMBIOS";}}
+async function prepararBusqueda(){const resultados=document.getElementById("resultadosBusqueda"),mensaje=document.getElementById("mensajeBusqueda"); resultados.innerHTML=""; mensaje.textContent="Cargando..."; try{window.__reparacionesBusqueda=await obtenerTodasLasReparaciones(); ejecutarBusqueda(); mensaje.textContent=`${window.__reparacionesBusqueda.length} reparación${window.__reparacionesBusqueda.length===1?"":"es"} disponible${window.__reparacionesBusqueda.length===1?"":"s"}.`;}catch(error){console.error(error);mensaje.textContent=error.message||"No se han podido cargar las reparaciones.";}}
+function ejecutarBusqueda(){const resultados=document.getElementById("resultadosBusqueda"); if(!resultados)return; const texto=(document.getElementById("campoBuscar")?.value||"").trim().toLowerCase(), datos=window.__reparacionesBusqueda||[], filtrados=!texto?datos:datos.filter(r=>[r.numero_reparacion,r.cliente,r.telefono,r.email,r.tipo_material,r.marca,r.modelo,r.numero_serie,r.estado_reparacion].some(v=>String(v||"").toLowerCase().includes(texto))); resultados.innerHTML=""; if(!filtrados.length){resultados.innerHTML="<p>No se han encontrado resultados.</p>";return;} filtrados.forEach(r=>resultados.appendChild(crearTarjetaResultado(r)));}
+function cargarConfiguracion(){document.getElementById("configEmpresa").value=localStorage.getItem("configEmpresa")||"SERVICIOS MUÑOZ"; document.getElementById("configIva").value=localStorage.getItem("configIva")||"21"; document.getElementById("adminUsuarioActual").textContent=usuarioActual||"-";}
+function guardarConfiguracion(){localStorage.setItem("configEmpresa",document.getElementById("configEmpresa").value.trim()||"SERVICIOS MUÑOZ");localStorage.setItem("configIva",document.getElementById("configIva").value||"21");const m=document.getElementById("mensajeAdministracion");m.textContent="Configuración guardada correctamente.";m.style.color="#15803d";}
+
 const reparacionesScreen =
     document.getElementById("reparacionesScreen");
-
 const reparacionesButton =
     document.getElementById("reparacionesButton");
-
 const volverDashboardReparaciones =
     document.getElementById("volverDashboardReparaciones");
-
 const actualizarReparaciones =
     document.getElementById("actualizarReparaciones");
-
 const listaReparaciones =
     document.getElementById("listaReparaciones");
-
 const mensajeReparaciones =
     document.getElementById("mensajeReparaciones");
-
 const detalleReparacion =
     document.getElementById("detalleReparacion");
-
 const contenidoDetalleReparacion =
     document.getElementById("contenidoDetalleReparacion");
-
 const cerrarDetalleReparacion =
     document.getElementById("cerrarDetalleReparacion");
-
 const usuarioInput =
     document.getElementById("usuario");
-
 const passwordInput =
     document.getElementById("password");
-
 const loginButton =
     document.getElementById("loginButton");
-
 const mensaje =
     document.getElementById("mensaje");
-
 const usuarioActivo =
     document.getElementById("usuarioActivo");
-
 const logoutButton =
     document.getElementById("logoutButton");
-
 const nuevaRecepcion =
     document.getElementById("nuevaRecepcion");
-
 const volverDashboard =
     document.getElementById("volverDashboard");
-
 const cancelarRecepcion =
     document.getElementById("cancelarRecepcion");
-
 const receptionForm =
     document.getElementById("receptionForm");
-
 const mensajeRecepcion =
     document.getElementById("mensajeRecepcion");
-
 const numeroReparacion =
     document.getElementById("numeroReparacion");
-
 const fechaRecepcion =
     document.getElementById("fechaRecepcion");
-
 const fotosInput =
     document.getElementById("fotos");
-
-
 function mostrarPantalla(pantalla) {
-
     dashboardScreen.style.display = "none";
     receptionScreen.style.display = "none";
     reparacionesScreen.style.display = "none";
     presupuestosScreen.style.display = "none";
-
+    if (clientesScreen) clientesScreen.style.display = "none";
+    if (buscarScreen) buscarScreen.style.display = "none";
+    if (administracionScreen) administracionScreen.style.display = "none";
     pantalla.style.display = "block";
 }
-
-
 function obtenerFechaActual() {
-
     const ahora = new Date();
-
     const año =
         ahora.getFullYear();
-
     const mes =
         String(ahora.getMonth() + 1)
             .padStart(2, "0");
-
     const dia =
         String(ahora.getDate())
             .padStart(2, "0");
-
     const horas =
         String(ahora.getHours())
             .padStart(2, "0");
-
     const minutos =
         String(ahora.getMinutes())
             .padStart(2, "0");
-
     return {
         año,
         mes,
@@ -164,218 +349,147 @@ function obtenerFechaActual() {
             `${año}-${mes}-${dia}T${horas}:${minutos}`
     };
 }
-
-
 function generarNumeroReparacion() {
-
     const fecha =
         obtenerFechaActual();
-
     return `RM-${fecha.año}-${fecha.mes}${fecha.dia}-${fecha.horas}${fecha.minutos}`;
 }
-
-
 function establecerDatosRecepcion() {
-
     const fecha =
         obtenerFechaActual();
-
     numeroReparacion.value =
         generarNumeroReparacion();
-
     fechaRecepcion.value =
         fecha.valor;
 }
-
-
 function mostrarAplicacion() {
-
+    crearPantallasExtra();
     loginScreen.style.display = "none";
     appScreen.style.display = "block";
-
     usuarioActivo.textContent =
         usuarioActual;
-
     mostrarPantalla(
         dashboardScreen
     );
 }
-
-
 async function iniciarSesion() {
-
     const usuario =
         usuarioInput.value.trim();
-
     const password =
         passwordInput.value;
-
     mensaje.textContent = "";
-
     if (!usuario || !password) {
-
         mensaje.textContent =
             "Introduce usuario y contraseña.";
-
         return;
     }
-
     loginButton.disabled = true;
     loginButton.textContent =
         "INICIANDO...";
-
     try {
-
         const respuesta =
             await fetch(
                 `${SUPABASE_URL}/functions/v1/iniciar-sesion`,
                 {
                     method: "POST",
-
                     headers: {
                         "Content-Type":
                             "application/json",
-
                         "apikey":
                             SUPABASE_PUBLISHABLE_KEY
                     },
-
                     body: JSON.stringify({
                         usuario,
                         password
                     })
                 }
             );
-
         const resultado =
             await respuesta.json();
-
         if (!respuesta.ok) {
-
             throw new Error(
                 resultado.error ||
                 resultado.message ||
                 "Usuario o contraseña incorrectos."
             );
         }
-
         if (!resultado.session) {
-
             throw new Error(
                 "No se recibió una sesión válida."
             );
         }
-
         const { error } =
             await supabaseClient.auth.setSession({
                 access_token:
                     resultado.session.access_token,
-
                 refresh_token:
                     resultado.session.refresh_token
             });
-
         if (error) {
             throw error;
         }
-
         usuarioActual =
             resultado.user?.user_metadata?.usuario ||
             usuario;
-
         localStorage.setItem(
             "usuarioHorusa",
             usuarioActual
         );
-
         mostrarAplicacion();
-
     } catch (error) {
-
         console.error(error);
-
         mensaje.textContent =
             error.message ||
             "No se ha podido iniciar sesión.";
-
     } finally {
-
         loginButton.disabled = false;
-
         loginButton.textContent =
             "INICIAR SESIÓN";
     }
 }
-
-
 async function cerrarSesion() {
-
     await supabaseClient.auth.signOut();
-
     usuarioActual = "";
-
     localStorage.removeItem(
         "usuarioHorusa"
     );
-
     appScreen.style.display = "none";
-
     loginScreen.style.display =
         "flex";
-
     usuarioInput.value = "";
     passwordInput.value = "";
     mensaje.textContent = "";
 }
-
-
 function volverAlDashboard() {
-
     receptionForm.reset();
-
     archivosFotos = [];
-
     mensajeRecepcion.textContent = "";
-
     mostrarPantalla(
         dashboardScreen
     );
 }
-
-
 function prepararSelectorFotos() {
-
     if (!fotosInput) {
         return;
     }
-
     archivosFotos = [];
-
     fotosInput.value = "";
-
     const contenedor =
         fotosInput.parentElement;
-
     fotosInput.style.display = "none";
-
     contenedor
         .querySelector(".photo-controls")
         ?.remove();
-
     contenedor
         .querySelector(".photo-summary")
         ?.remove();
-
     contenedor
         .querySelector(".photo-preview-grid")
         ?.remove();
-
     const controles =
         document.createElement("div");
-
     controles.className =
         "photo-controls";
-
     Object.assign(
         controles.style,
         {
@@ -385,65 +499,43 @@ function prepararSelectorFotos() {
             marginTop: "8px"
         }
     );
-
     const botonCamara =
         document.createElement("button");
-
     botonCamara.type = "button";
-
     botonCamara.textContent =
         "📷 HACER FOTO";
-
     botonCamara.className =
         "secondary-button";
-
     const botonGaleria =
         document.createElement("button");
-
     botonGaleria.type = "button";
-
     botonGaleria.textContent =
         "🖼️ ELEGIR FOTOS";
-
     botonGaleria.className =
         "secondary-button";
-
     const camaraInput =
         document.createElement("input");
-
     camaraInput.type = "file";
-
     camaraInput.accept =
         "image/*";
-
     camaraInput.capture =
         "environment";
-
     camaraInput.style.display =
         "none";
-
     const galeriaInput =
         document.createElement("input");
-
     galeriaInput.type = "file";
-
     galeriaInput.accept =
         "image/*";
-
     galeriaInput.multiple = true;
-
     galeriaInput.style.display =
         "none";
-
     const resumen =
         document.createElement("p");
-
     resumen.className =
         "photo-summary";
-
     resumen.textContent =
         "No hay fotografías seleccionadas.";
-
     Object.assign(
         resumen.style,
         {
@@ -451,13 +543,10 @@ function prepararSelectorFotos() {
             fontWeight: "600"
         }
     );
-
     const galeria =
         document.createElement("div");
-
     galeria.className =
         "photo-preview-grid";
-
     Object.assign(
         galeria.style,
         {
@@ -467,74 +556,56 @@ function prepararSelectorFotos() {
             marginTop: "16px"
         }
     );
-
     botonCamara.addEventListener(
         "click",
         () => {
             camaraInput.click();
         }
     );
-
     botonGaleria.addEventListener(
         "click",
         () => {
             galeriaInput.click();
         }
     );
-
     camaraInput.addEventListener(
         "change",
         () => {
-
             const archivos =
                 Array.from(
                     camaraInput.files || []
                 );
-
             if (!archivos.length) {
                 return;
             }
-
             archivosFotos.push(
                 ...archivos
             );
-
             actualizarFotos();
-
             camaraInput.value = "";
         }
     );
-
     galeriaInput.addEventListener(
         "change",
         () => {
-
             const archivos =
                 Array.from(
                     galeriaInput.files || []
                 );
-
             if (!archivos.length) {
                 return;
             }
-
             archivosFotos.push(
                 ...archivos
             );
-
             actualizarFotos();
-
             galeriaInput.value = "";
         }
     );
-
     function actualizarFotos() {
-
         galeria.innerHTML = "";
-
         const transferencia =
             new DataTransfer();
-
         archivosFotos.forEach(
             archivo => {
                 transferencia.items.add(
@@ -542,24 +613,18 @@ function prepararSelectorFotos() {
                 );
             }
         );
-
         fotosInput.files =
             transferencia.files;
-
         const cantidad =
             archivosFotos.length;
-
         resumen.textContent =
             cantidad === 0
                 ? "No hay fotografías seleccionadas."
                 : `${cantidad} fotografía${cantidad === 1 ? "" : "s"} seleccionada${cantidad === 1 ? "" : "s"}.`;
-
         archivosFotos.forEach(
             (archivo, indice) => {
-
                 const tarjeta =
                     document.createElement("div");
-
                 Object.assign(
                     tarjeta.style,
                     {
@@ -572,18 +637,14 @@ function prepararSelectorFotos() {
                         background: "#f5f5f5"
                     }
                 );
-
                 const imagen =
                     document.createElement("img");
-
                 imagen.src =
                     URL.createObjectURL(
                         archivo
                     );
-
                 imagen.alt =
                     archivo.name;
-
                 Object.assign(
                     imagen.style,
                     {
@@ -592,14 +653,10 @@ function prepararSelectorFotos() {
                         objectFit: "cover"
                     }
                 );
-
                 const eliminar =
                     document.createElement("button");
-
                 eliminar.type = "button";
-
                 eliminar.textContent = "×";
-
                 Object.assign(
                     eliminar.style,
                     {
@@ -617,68 +674,51 @@ function prepararSelectorFotos() {
                         cursor: "pointer"
                     }
                 );
-
                 eliminar.addEventListener(
                     "click",
                     () => {
-
                         archivosFotos.splice(
                             indice,
                             1
                         );
-
                         actualizarFotos();
                     }
                 );
-
                 tarjeta.appendChild(
                     imagen
                 );
-
                 tarjeta.appendChild(
                     eliminar
                 );
-
                 galeria.appendChild(
                     tarjeta
                 );
             }
         );
     }
-
     controles.appendChild(
         botonCamara
     );
-
     controles.appendChild(
         botonGaleria
     );
-
     contenedor.appendChild(
         controles
     );
-
     contenedor.appendChild(
         resumen
     );
-
     contenedor.appendChild(
         galeria
     );
 }
-
-
 function obtenerTexto(valor) {
-
     return valor === null ||
         valor === undefined
         ? ""
         : String(valor);
 }
-
-
 function escaparHTML(valor) {
-
     return obtenerTexto(valor)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -686,17 +726,12 @@ function escaparHTML(valor) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
-
-
 function formatearFecha(valor) {
-
     if (!valor) {
         return "";
     }
-
     const fecha =
         new Date(valor);
-
     if (
         Number.isNaN(
             fecha.getTime()
@@ -704,7 +739,6 @@ function formatearFecha(valor) {
     ) {
         return obtenerTexto(valor);
     }
-
     return fecha.toLocaleString(
         "es-ES",
         {
@@ -716,44 +750,34 @@ function formatearFecha(valor) {
         }
     );
 }
-
-
 async function subirFotosRecepcion(
     numero
 ) {
-
     const fotosSubidas = [];
-
     const archivos =
         Array.from(
             fotosInput.files || []
         );
-
     if (!archivos.length) {
         return fotosSubidas;
     }
-
     for (
         const archivo of archivos
     ) {
-
         const nombreLimpio =
             archivo.name
                 .replace(
-                    /[^\w.\-]/g,
+                    /[^\w.**\-**]/g,
                     "_"
                 )
                 .replace(
                     /_+/g,
                     "_"
                 );
-
         const nombreArchivo =
             `${Date.now()}_${nombreLimpio}`;
-
         const ruta =
             `private/reparaciones/${numero}/${nombreArchivo}`;
-
         const { error } =
             await supabaseClient.storage
                 .from("fotos-recepciones")
@@ -765,51 +789,35 @@ async function subirFotosRecepcion(
                         upsert: false
                     }
                 );
-
         if (error) {
             throw error;
         }
-
         fotosSubidas.push(
             ruta
         );
     }
-
     return fotosSubidas;
 }
-
-
 async function guardarRecepcion() {
-
     mensajeRecepcion.textContent = "";
-
     const formData =
         new FormData(
             receptionForm
         );
-
     const datos =
         Object.fromEntries(
             formData.entries()
         );
-
     let numero =
         numeroReparacion.value.trim();
-
     if (!numero) {
-
         mensajeRecepcion.textContent =
             "Falta el número de reparación.";
-
         return;
     }
-
     let numeroFinal = numero;
-
     let contador = 1;
-
     while (true) {
-
         const {
             data: existente,
             error: errorBusqueda
@@ -822,103 +830,74 @@ async function guardarRecepcion() {
                     numeroFinal
                 )
                 .limit(1);
-
         if (errorBusqueda) {
-
             console.error(
                 errorBusqueda
             );
-
             break;
         }
-
         if (
             !existente ||
             existente.length === 0
         ) {
             break;
         }
-
         numeroFinal =
             `${numero}-${String(
                 contador
             ).padStart(2, "0")}`;
-
         contador++;
     }
-
     numeroReparacion.value =
         numeroFinal;
-
     const registro = {
-
         numero_reparacion:
             numeroFinal,
-
         fecha_recepcion:
             datos.fechaRecepcion ||
             null,
-
         cliente:
             datos.cliente || "",
-
         telefono:
             datos.telefono || "",
-
         email:
             datos.email || "",
-
         tipo_material:
             datos.tipoMaterial || "",
-
         marca:
             datos.marca || "",
-
         modelo:
             datos.modelo || "",
-
         numero_serie:
             datos.numeroSerie || "",
-
         accesorios:
             datos.accesorios || "",
-
         descripcion_averia:
             datos.descripcionAveria ||
             "",
-
         observaciones_cliente:
             datos.observacionesCliente ||
             "",
-
         usuario_recepcion:
             usuarioActual || "",
-
         estado_reparacion:
             "Pendiente"
     };
-
     const botonGuardar =
         receptionForm.querySelector(
             'button[type="submit"]'
         );
-
     const textoOriginal =
         botonGuardar
             ? botonGuardar.textContent
             : "";
-
     if (botonGuardar) {
-
         botonGuardar.disabled =
             true;
-
         botonGuardar.textContent =
             "GUARDANDO...";
     }
-
     try {
-
         const {
             data,
             error
@@ -928,21 +907,17 @@ async function guardarRecepcion() {
                 .insert(registro)
                 .select()
                 .single();
-
         if (error) {
             throw error;
         }
-
         const fotosSubidas =
             await subirFotosRecepcion(
                 numeroFinal
             );
-
         if (
             fotosSubidas.length &&
             data?.id
         ) {
-
             const {
                 error: errorFotos
             } =
@@ -956,82 +931,56 @@ async function guardarRecepcion() {
                         "id",
                         data.id
                     );
-
             if (errorFotos) {
                 throw errorFotos;
             }
         }
-
         mensajeRecepcion.textContent =
             `Recepción guardada correctamente: ${numeroFinal}`;
-
         mensajeRecepcion.style.color =
             "#15803d";
-
         receptionForm.reset();
-
         archivosFotos = [];
-
         prepararSelectorFotos();
-
         setTimeout(
             () => {
-
                 mensajeRecepcion.textContent =
                     "";
-
                 mostrarPantalla(
                     dashboardScreen
                 );
-
             },
             500
         );
-
     } catch (error) {
-
         console.error(error);
-
         mensajeRecepcion.textContent =
             error.message ||
             "No se ha podido guardar la recepción.";
-
         mensajeRecepcion.style.color =
             "#dc2626";
-
     } finally {
-
         if (botonGuardar) {
-
             botonGuardar.disabled =
                 false;
-
             botonGuardar.textContent =
                 textoOriginal;
         }
     }
 }
-
-
 async function mostrarMensajeRecepcionExito(
     data
 ) {
-
     mensajeRecepcion.textContent =
         `Recepción guardada correctamente: ${data.numero_reparacion}`;
-
     mensajeRecepcion.style.color =
         "#15803d";
 }
-
-
 function renderizarEstado(
     estado
 ) {
-
     const valor =
         estado || "Pendiente";
-
     const clase =
         valor
             .toLowerCase()
@@ -1044,58 +993,42 @@ function renderizarEstado(
                 /\s+/g,
                 "-"
             );
-
     return `
         <span class="estado ${clase}">
             ${escaparHTML(valor)}
         </span>
     `;
 }
-
-
 async function cargarFotosRecepcion(
     rutas
 ) {
-
     if (!rutas) {
         return [];
     }
-
     let lista = [];
-
     try {
-
         if (
             Array.isArray(rutas)
         ) {
-
             lista = rutas;
-
         } else if (
             typeof rutas ===
             "string"
         ) {
-
             lista =
                 JSON.parse(rutas);
         }
-
     } catch (error) {
-
         console.error(
             "No se pudieron interpretar las fotos:",
             error
         );
-
         return [];
     }
-
     const fotos = [];
-
     for (
         const ruta of lista
     ) {
-
         const {
             data,
             error
@@ -1106,73 +1039,52 @@ async function cargarFotosRecepcion(
                     ruta,
                     60 * 60
                 );
-
         if (error) {
-
             console.error(error);
-
             continue;
         }
-
         if (
             data?.signedUrl
         ) {
-
             fotos.push(
                 data.signedUrl
             );
         }
     }
-
     return fotos;
 }
-
-
 async function abrirFotosReparacion(
     reparacion
 ) {
-
     const rutas =
         reparacion.fotos;
-
     if (!rutas) {
-
         alert(
             "Esta reparación no tiene fotografías."
         );
-
         return;
     }
-
     const fotos =
         await cargarFotosRecepcion(
             rutas
         );
-
     if (!fotos.length) {
-
         alert(
             "No se han podido cargar las fotografías."
         );
-
         return;
     }
-
     let modal =
         document.getElementById(
             "modalFotosReparacion"
         );
-
     if (modal) {
         modal.remove();
     }
-
     modal =
         document.createElement("div");
-
     modal.id =
         "modalFotosReparacion";
-
     Object.assign(
         modal.style,
         {
@@ -1189,19 +1101,14 @@ async function abrirFotosReparacion(
             boxSizing: "border-box"
         }
     );
-
     const cerrar =
         document.createElement("button");
-
     cerrar.type =
         "button";
-
     cerrar.textContent =
         "✕ CERRAR";
-
     cerrar.className =
         "secondary-button";
-
     Object.assign(
         cerrar.style,
         {
@@ -1211,13 +1118,10 @@ async function abrirFotosReparacion(
             zIndex: "2"
         }
     );
-
     const titulo =
         document.createElement("h2");
-
     titulo.textContent =
         `Fotografías — ${reparacion.numero_reparacion}`;
-
     Object.assign(
         titulo.style,
         {
@@ -1226,10 +1130,8 @@ async function abrirFotosReparacion(
             textAlign: "center"
         }
     );
-
     const imagenGrande =
         document.createElement("img");
-
     Object.assign(
         imagenGrande.style,
         {
@@ -1241,10 +1143,8 @@ async function abrirFotosReparacion(
             display: "block"
         }
     );
-
     const miniaturas =
         document.createElement("div");
-
     Object.assign(
         miniaturas.style,
         {
@@ -1257,19 +1157,14 @@ async function abrirFotosReparacion(
             overflowY: "auto"
         }
     );
-
     fotos.forEach(
         (url, indice) => {
-
             const miniatura =
                 document.createElement("img");
-
             miniatura.src =
                 url;
-
             miniatura.alt =
                 `Fotografía ${indice + 1}`;
-
             Object.assign(
                 miniatura.style,
                 {
@@ -1282,14 +1177,11 @@ async function abrirFotosReparacion(
                         "2px solid transparent"
                 }
             );
-
             miniatura.addEventListener(
                 "click",
                 () => {
-
                     imagenGrande.src =
                         url;
-
                     Array.from(
                         miniaturas.children
                     ).forEach(
@@ -1299,81 +1191,62 @@ async function abrirFotosReparacion(
                                 "transparent";
                         }
                     );
-
                     miniatura.style
                         .borderColor =
                         "#fff";
                 }
             );
-
             miniaturas.appendChild(
                 miniatura
             );
         }
     );
-
     imagenGrande.src =
         fotos[0];
-
     if (
         miniaturas.firstElementChild
     ) {
-
         miniaturas
             .firstElementChild
             .style
             .borderColor =
             "#fff";
     }
-
     cerrar.addEventListener(
         "click",
         () => modal.remove()
     );
-
     modal.addEventListener(
         "click",
         event => {
-
             if (
                 event.target === modal
             ) {
-
                 modal.remove();
             }
         }
     );
-
     modal.appendChild(
         cerrar
     );
-
     modal.appendChild(
         titulo
     );
-
     modal.appendChild(
         imagenGrande
     );
-
     modal.appendChild(
         miniaturas
     );
-
     document.body.appendChild(
         modal
     );
 }
-
-
 async function cargarReparaciones() {
-
     mensajeReparaciones.textContent =
         "";
-
     listaReparaciones.innerHTML =
         "";
-
     const {
         data,
         error
@@ -1387,78 +1260,71 @@ async function cargarReparaciones() {
                     ascending: false
                 }
             );
-
     if (error) {
-
         console.error(error);
-
         mensajeReparaciones.textContent =
             error.message ||
             "No se han podido cargar las reparaciones.";
-
         return;
     }
-
     if (
         !data ||
         !data.length
     ) {
-
         listaReparaciones.innerHTML =
             "<p>No hay reparaciones registradas.</p>";
-
         return;
     }
-
     data.forEach(
         reparacion => {
-
             const tarjeta =
                 document.createElement("div");
-
             tarjeta.className =
                 "reparacion-card";
-
             tarjeta.innerHTML = `
                 <div class="reparacion-card-info">
-
                     <strong>
                         ${escaparHTML(
                             reparacion.numero_reparacion
                         )}
                     </strong>
-
                     <p>
                         ${escaparHTML(
                             reparacion.cliente ||
                             "Sin cliente"
                         )}
                     </p>
-
                     <p>
                         ${escaparHTML(
                             reparacion.tipo_material ||
                             "Sin material"
                         )}
                     </p>
-
                 </div>
-
                 <div class="reparacion-card-actions">
-
                     ${renderizarEstado(
                         reparacion.estado_reparacion
                     )}
-
-                    <button
-                        type="button"
-                        class="secondary-button btn-ver-reparacion"
-                    >
-                        VER DETALLE
-                    </button>
-
+                   <button
+    type="button"
+    class="secondary-button btn-ver-reparacion"
+>
+    VER DETALLE
+</button>
+<button
+    type="button"
+    class="secondary-button btn-eliminar-reparacion"
+    style="
+        background:#dc2626;
+        color:white;
+        border-color:#dc2626;
+        padding:10px 16px;
+        font-size:13px;
+    "
+>
+    BORRAR
+</button>
                 </div>
-
                 <div
                     class="detalle-reparacion-inline"
                     style="
@@ -1468,36 +1334,37 @@ async function cargarReparaciones() {
                     "
                 ></div>
             `;
-
             const boton =
                 tarjeta.querySelector(
                     ".btn-ver-reparacion"
                 );
-
+                const botonEliminar =
+    tarjeta.querySelector(
+        ".btn-eliminar-reparacion"
+    );
+botonEliminar.addEventListener(
+    "click",
+    async () => {
+        await eliminarReparacion(reparacion);
+    }
+);
             const detalle =
                 tarjeta.querySelector(
                     ".detalle-reparacion-inline"
                 );
-
             boton.addEventListener(
                 "click",
                 async () => {
-
                     const abierto =
                         detalle.style.display ===
                         "block";
-
                     if (abierto) {
-
                         detalle.style.display =
                             "none";
-
                         boton.textContent =
                             "VER DETALLE";
-
                         return;
                     }
-
                     document
                         .querySelectorAll(
                             ".detalle-reparacion-inline"
@@ -1508,7 +1375,6 @@ async function cargarReparaciones() {
                                     "none";
                             }
                         );
-
                     document
                         .querySelectorAll(
                             ".btn-ver-reparacion"
@@ -1519,33 +1385,84 @@ async function cargarReparaciones() {
                                     "VER DETALLE";
                             }
                         );
-
                     detalle.style.display =
                         "block";
-
                     boton.textContent =
                         "CERRAR DETALLE";
-
                     await mostrarDetalleReparacionInline(
                         reparacion,
                         detalle
                     );
                 }
             );
-
             listaReparaciones.appendChild(
                 tarjeta
             );
         }
     );
 }
-
-
+async function eliminarReparacion(reparacion) {
+    const numero =
+        reparacion?.numero_reparacion ||
+        "esta reparación";
+    const confirmar = confirm(
+        `¿Seguro que quieres borrar la reparación ${numero}?\n\n` +
+        `También se eliminarán sus fotografías.\n\n` +
+        `Esta acción no se puede deshacer.`
+    );
+    if (!confirmar) {
+        return;
+    }
+    mensajeReparaciones.textContent =
+        "Eliminando reparación...";
+    try {
+        let rutasFotos = [];
+        if (Array.isArray(reparacion?.fotos)) {
+            rutasFotos = reparacion.fotos;
+        } else if (typeof reparacion?.fotos === "string") {
+            try {
+                rutasFotos = JSON.parse(reparacion.fotos);
+            } catch {
+                rutasFotos = [];
+            }
+        }
+        if (!Array.isArray(rutasFotos)) {
+            rutasFotos = [];
+        }
+        rutasFotos = rutasFotos.filter(Boolean);
+        if (rutasFotos.length) {
+            const { error: errorFotos } =
+                await supabaseClient.storage
+                    .from("fotos-recepciones")
+                    .remove(rutasFotos);
+            if (errorFotos) {
+                throw errorFotos;
+            }
+        }
+        const { error } =
+            await supabaseClient
+                .from("recepciones")
+                .delete()
+                .eq("id", reparacion.id);
+        if (error) {
+            throw error;
+        }
+        detalleReparacion.style.display = "none";
+        await cargarReparaciones();
+        mensajeReparaciones.textContent =
+            `La reparación ${numero} se ha eliminado correctamente.`;
+        mensajeReparaciones.style.color = "#15803d";
+    } catch (error) {
+        console.error(error);
+        mensajeReparaciones.textContent =
+            `No se ha podido eliminar la reparación: ${error.message}`;
+        mensajeReparaciones.style.color = "#dc2626";
+    }
+}
 async function mostrarDetalleReparacionInline(
     reparacion,
     contenedor
 ) {
-
     contenedor.innerHTML = `
         <div
             style="
@@ -1554,11 +1471,9 @@ async function mostrarDetalleReparacionInline(
                 border-top:1px solid #e5e7eb;
             "
         >
-
             <h3 style="margin-top:0;">
                 Detalle de la reparación
             </h3>
-
             <div
                 style="
                     display:grid;
@@ -1571,24 +1486,20 @@ async function mostrarDetalleReparacionInline(
                     margin-top:20px;
                 "
             >
-
                 <div>
                     <strong>
                         Número de reparación
                     </strong>
-
                     <p>
                         ${escaparHTML(
                             reparacion.numero_reparacion
                         )}
                     </p>
                 </div>
-
                 <div>
                     <strong>
                         Fecha
                     </strong>
-
                     <p>
                         ${escaparHTML(
                             formatearFecha(
@@ -1597,12 +1508,10 @@ async function mostrarDetalleReparacionInline(
                         )}
                     </p>
                 </div>
-
                 <div>
                     <strong>
                         Cliente
                     </strong>
-
                     <p>
                         ${escaparHTML(
                             reparacion.cliente ||
@@ -1610,12 +1519,10 @@ async function mostrarDetalleReparacionInline(
                         )}
                     </p>
                 </div>
-
                 <div>
                     <strong>
                         Teléfono
                     </strong>
-
                     <p>
                         ${escaparHTML(
                             reparacion.telefono ||
@@ -1623,12 +1530,10 @@ async function mostrarDetalleReparacionInline(
                         )}
                     </p>
                 </div>
-
                 <div>
                     <strong>
                         Email
                     </strong>
-
                     <p>
                         ${escaparHTML(
                             reparacion.email ||
@@ -1636,12 +1541,10 @@ async function mostrarDetalleReparacionInline(
                         )}
                     </p>
                 </div>
-
                 <div>
                     <strong>
                         Material
                     </strong>
-
                     <p>
                         ${escaparHTML(
                             reparacion.tipo_material ||
@@ -1649,12 +1552,10 @@ async function mostrarDetalleReparacionInline(
                         )}
                     </p>
                 </div>
-
                 <div>
                     <strong>
                         Marca
                     </strong>
-
                     <p>
                         ${escaparHTML(
                             reparacion.marca ||
@@ -1662,12 +1563,10 @@ async function mostrarDetalleReparacionInline(
                         )}
                     </p>
                 </div>
-
                 <div>
                     <strong>
                         Modelo
                     </strong>
-
                     <p>
                         ${escaparHTML(
                             reparacion.modelo ||
@@ -1675,12 +1574,10 @@ async function mostrarDetalleReparacionInline(
                         )}
                     </p>
                 </div>
-
                 <div>
                     <strong>
                         Número de serie
                     </strong>
-
                     <p>
                         ${escaparHTML(
                             reparacion.numero_serie ||
@@ -1688,125 +1585,97 @@ async function mostrarDetalleReparacionInline(
                         )}
                     </p>
                 </div>
-
                 <div>
                     <strong>
                         Estado
                     </strong>
-
                     <p>
                         ${renderizarEstado(
                             reparacion.estado_reparacion
                         )}
                     </p>
                 </div>
-
             </div>
-
             <hr>
-
             <h3>
                 Información de la reparación
             </h3>
-
             <p>
                 <strong>Avería:</strong>
-
                 ${escaparHTML(
                     reparacion.descripcion_averia ||
                     "Sin información"
                 )}
             </p>
-
             <p>
                 <strong>Accesorios:</strong>
-
                 ${escaparHTML(
                     reparacion.accesorios ||
                     "Sin información"
                 )}
             </p>
-
             <p>
                 <strong>
                     Observaciones del cliente:
                 </strong>
-
                 ${escaparHTML(
                     reparacion.observaciones_cliente ||
                     "Sin información"
                 )}
             </p>
-
             <hr>
-
             <h3>
                 Diagnóstico
             </h3>
-
             <p>
                 <strong>Diagnóstico:</strong>
-
                 ${escaparHTML(
                     reparacion.diagnostico ||
                     "Sin diagnóstico"
                 )}
             </p>
-
             <p>
                 <strong>
                     Pruebas realizadas:
                 </strong>
-
                 ${escaparHTML(
                     reparacion.pruebas_realizadas ||
                     "Sin pruebas registradas"
                 )}
             </p>
-
             <p>
                 <strong>
                     Observaciones del taller:
                 </strong>
-
                 ${escaparHTML(
                     reparacion.observaciones_taller ||
                     "Sin observaciones"
                 )}
             </p>
-
             <hr>
-
             <h3>
                 Reparación
             </h3>
-
             <p>
                 <strong>Piezas:</strong>
-
                 ${escaparHTML(
                     reparacion.piezas ||
                     "Sin piezas registradas"
                 )}
             </p>
-
             <p>
                 <strong>
                     Mano de obra:
                 </strong>
-
                 ${escaparHTML(
                     reparacion.mano_obra ||
                     "Sin mano de obra registrada"
                 )}
             </p>
-
             <hr>
-
             <h3>
                 Presupuesto
             </h3>
-
             <div
                 style="
                     display:grid;
@@ -1818,12 +1687,10 @@ async function mostrarDetalleReparacionInline(
                     gap:15px;
                 "
             >
-
                 <div>
                     <strong>
                         Coste de piezas
                     </strong>
-
                     <p>
                         ${Number(
                             reparacion.coste_piezas ||
@@ -1831,12 +1698,10 @@ async function mostrarDetalleReparacionInline(
                         ).toFixed(2)} €
                     </p>
                 </div>
-
                 <div>
                     <strong>
                         Mano de obra
                     </strong>
-
                     <p>
                         ${Number(
                             reparacion.coste_mano_obra ||
@@ -1844,12 +1709,10 @@ async function mostrarDetalleReparacionInline(
                         ).toFixed(2)} €
                     </p>
                 </div>
-
                 <div>
                     <strong>
                         Otros costes
                     </strong>
-
                     <p>
                         ${Number(
                             reparacion.otros_costes ||
@@ -1857,12 +1720,10 @@ async function mostrarDetalleReparacionInline(
                         ).toFixed(2)} €
                     </p>
                 </div>
-
                 <div>
                     <strong>
                         Total
                     </strong>
-
                     <p
                         style="
                             font-size:20px;
@@ -1875,20 +1736,16 @@ async function mostrarDetalleReparacionInline(
                         ).toFixed(2)} €
                     </p>
                 </div>
-
             </div>
-
             <p>
                 <strong>
                     Estado del presupuesto:
                 </strong>
-
                 ${escaparHTML(
                     reparacion.estado_presupuesto ||
                     "Pendiente"
                 )}
             </p>
-
             <div
                 style="
                     display:flex;
@@ -1897,7 +1754,6 @@ async function mostrarDetalleReparacionInline(
                     margin-top:25px;
                 "
             >
-
                 <button
                     type="button"
                     class="primary-button"
@@ -1905,7 +1761,6 @@ async function mostrarDetalleReparacionInline(
                 >
                     EDITAR REPARACIÓN
                 </button>
-
                 <button
                     type="button"
                     class="secondary-button"
@@ -1913,7 +1768,6 @@ async function mostrarDetalleReparacionInline(
                 >
                     VER FOTOS
                 </button>
-
                 <button
                     type="button"
                     class="secondary-button"
@@ -1921,9 +1775,7 @@ async function mostrarDetalleReparacionInline(
                 >
                     CERRAR DETALLE
                 </button>
-
             </div>
-
             <p
                 data-mensaje-edicion
                 style="
@@ -1931,10 +1783,8 @@ async function mostrarDetalleReparacionInline(
                     font-weight:bold;
                 "
             ></p>
-
         </div>
     `;
-
     contenedor
         .querySelector(
             '[data-accion="editar"]'
@@ -1942,14 +1792,12 @@ async function mostrarDetalleReparacionInline(
         .addEventListener(
             "click",
             () => {
-
                 crearFormularioEdicionInline(
                     reparacion,
                     contenedor
                 );
             }
         );
-
     contenedor
         .querySelector(
             '[data-accion="fotos"]'
@@ -1957,13 +1805,11 @@ async function mostrarDetalleReparacionInline(
         .addEventListener(
             "click",
             () => {
-
                 abrirFotosReparacion(
                     reparacion
                 );
             }
         );
-
     contenedor
         .querySelector(
             '[data-accion="cerrar"]'
@@ -1971,31 +1817,24 @@ async function mostrarDetalleReparacionInline(
         .addEventListener(
             "click",
             () => {
-
                 contenedor.style.display =
                     "none";
-
                 const boton =
                     contenedor.parentElement
                         .querySelector(
                             ".btn-ver-reparacion"
                         );
-
                 if (boton) {
-
                     boton.textContent =
                         "VER DETALLE";
                 }
             }
         );
 }
-
-
 function crearFormularioEdicionInline(
     reparacion,
     contenedor
 ) {
-
     contenedor.innerHTML = `
         <div
             style="
@@ -2004,113 +1843,79 @@ function crearFormularioEdicionInline(
                 border-top:1px solid #e5e7eb;
             "
         >
-
             <h3>
                 Editar reparación
             </h3>
-
             <div class="form-field">
-
                 <label>
                     Estado de la reparación
                 </label>
-
                 <select
                     id="editarEstadoInline"
                 >
-
                     <option value="Pendiente">
                         Pendiente
                     </option>
-
                     <option value="En diagnóstico">
                         En diagnóstico
                     </option>
-
                     <option value="Esperando piezas">
                         Esperando piezas
                     </option>
-
                     <option value="En reparación">
                         En reparación
                     </option>
-
                     <option value="Reparada">
                         Reparada
                     </option>
-
                     <option value="No reparable">
                         No reparable
                     </option>
-
                     <option value="Entregada">
                         Entregada
                     </option>
-
                 </select>
-
             </div>
-
             <div class="form-field">
-
                 <label>
                     Diagnóstico
                 </label>
-
                 <textarea
                     id="editarDiagnosticoInline"
                 ></textarea>
-
             </div>
-
             <div class="form-field">
-
                 <label>
                     Pruebas realizadas
                 </label>
-
                 <textarea
                     id="editarPruebasInline"
                 ></textarea>
-
             </div>
-
             <div class="form-field">
-
                 <label>
                     Observaciones del taller
                 </label>
-
                 <textarea
                     id="editarObservacionesInline"
                 ></textarea>
-
             </div>
-
             <div class="form-field">
-
                 <label>
                     Piezas
                 </label>
-
                 <textarea
                     id="editarPiezasInline"
                 ></textarea>
-
             </div>
-
             <div class="form-field">
-
                 <label>
                     Mano de obra
                 </label>
-
                 <textarea
                     id="editarManoObraInline"
                 ></textarea>
-
             </div>
-
             <div
                 style="
                     display:grid;
@@ -2122,98 +1927,91 @@ function crearFormularioEdicionInline(
                     gap:15px;
                 "
             >
-
                 <div class="form-field">
-
                     <label>
                         Coste de piezas (€)
                     </label>
-
                     <input
                         type="number"
                         id="editarPiezasCosteInline"
                         min="0"
                         step="0.01"
                     >
-
                 </div>
-
                 <div class="form-field">
-
                     <label>
                         Coste mano de obra (€)
                     </label>
-
                     <input
                         type="number"
                         id="editarManoObraCosteInline"
                         min="0"
                         step="0.01"
                     >
-
                 </div>
-
                 <div class="form-field">
-
                     <label>
                         Otros costes (€)
                     </label>
-
                     <input
                         type="number"
                         id="editarOtrosCostesInline"
                         min="0"
                         step="0.01"
                     >
-
                 </div>
-
             </div>
-
             <div class="form-field">
-
                 <label>
                     Estado del presupuesto
                 </label>
-
                 <select
                     id="editarEstadoPresupuestoInline"
                 >
-
                     <option value="Pendiente">
                         Pendiente
                     </option>
-
                     <option value="Enviado">
                         Enviado
                     </option>
-
                     <option value="Aceptado">
                         Aceptado
                     </option>
-
                     <option value="Rechazado">
                         Rechazado
                     </option>
-
                 </select>
-
             </div>
-
             <div class="form-field">
-
                 <label>
-                    Total presupuesto (€)
+                    Subtotal sin IVA (€)
                 </label>
-
                 <input
                     type="number"
                     id="editarTotalInline"
                     readonly
                 >
-
             </div>
-
+            <div class="form-field">
+                <label>
+                    IVA (21 %) (€)
+                </label>
+                <input
+                    type="number"
+                    id="editarIvaInline"
+                    readonly
+                >
+            </div>
+            <div class="form-field">
+                <label>
+                    Total con IVA (€)
+                </label>
+                <input
+                    type="number"
+                    id="editarTotalConIvaInline"
+                    readonly
+                >
+            </div>
             <div
                 style="
                     display:flex;
@@ -2222,7 +2020,6 @@ function crearFormularioEdicionInline(
                     margin-top:20px;
                 "
             >
-
                 <button
                     type="button"
                     class="primary-button"
@@ -2230,7 +2027,6 @@ function crearFormularioEdicionInline(
                 >
                     GUARDAR CAMBIOS
                 </button>
-
                 <button
                     type="button"
                     class="secondary-button"
@@ -2238,9 +2034,7 @@ function crearFormularioEdicionInline(
                 >
                     CANCELAR
                 </button>
-
             </div>
-
             <p
                 id="mensajeEdicionInline"
                 style="
@@ -2248,113 +2042,96 @@ function crearFormularioEdicionInline(
                     font-weight:bold;
                 "
             ></p>
-
         </div>
     `;
-
     const estado =
         document.getElementById(
             "editarEstadoInline"
         );
-
     const diagnostico =
         document.getElementById(
             "editarDiagnosticoInline"
         );
-
     const pruebas =
         document.getElementById(
             "editarPruebasInline"
         );
-
     const observaciones =
         document.getElementById(
             "editarObservacionesInline"
         );
-
     const piezas =
         document.getElementById(
             "editarPiezasInline"
         );
-
     const manoObra =
         document.getElementById(
             "editarManoObraInline"
         );
-
     const costePiezas =
         document.getElementById(
             "editarPiezasCosteInline"
         );
-
     const costeManoObra =
         document.getElementById(
             "editarManoObraCosteInline"
         );
-
     const otrosCostes =
         document.getElementById(
             "editarOtrosCostesInline"
         );
-
     const estadoPresupuesto =
         document.getElementById(
             "editarEstadoPresupuestoInline"
         );
-
     const total =
         document.getElementById(
             "editarTotalInline"
         );
-
+    const iva =
+        document.getElementById(
+            "editarIvaInline"
+        );
+    const totalConIva =
+        document.getElementById(
+            "editarTotalConIvaInline"
+        );
     const mensaje =
         document.getElementById(
             "mensajeEdicionInline"
         );
-
     estado.value =
         reparacion.estado_reparacion ||
         "Pendiente";
-
     diagnostico.value =
         reparacion.diagnostico ||
         "";
-
     pruebas.value =
         reparacion.pruebas_realizadas ||
         "";
-
     observaciones.value =
         reparacion.observaciones_taller ||
         "";
-
     piezas.value =
         reparacion.piezas ||
         "";
-
     manoObra.value =
         reparacion.mano_obra ||
         "";
-
     costePiezas.value =
         reparacion.coste_piezas ||
         0;
-
     costeManoObra.value =
         reparacion.coste_mano_obra ||
         0;
-
     otrosCostes.value =
         reparacion.otros_costes ||
         0;
-
     estadoPresupuesto.value =
         reparacion.estado_presupuesto ||
         "Pendiente";
-
     function calcularTotal() {
-
-        total.value =
+        const subtotal =
             (
                 Number(
                     costePiezas.value
@@ -2370,29 +2147,30 @@ function crearFormularioEdicionInline(
                     otrosCostes.value
                 ) || 0
             );
-
+        const importeIva =
+            subtotal * 0.21;
+        const totalFinal =
+            subtotal + importeIva;
         total.value =
-            Number(
-                total.value
-            ).toFixed(2);
+            subtotal.toFixed(2);
+        iva.value =
+            importeIva.toFixed(2);
+        totalConIva.value =
+            totalFinal.toFixed(2);
     }
-
     [
         costePiezas,
         costeManoObra,
         otrosCostes
     ].forEach(
         campo => {
-
             campo.addEventListener(
                 "input",
                 calcularTotal
             );
         }
     );
-
     calcularTotal();
-
     document
         .getElementById(
             "guardarEdicionInline"
@@ -2400,59 +2178,43 @@ function crearFormularioEdicionInline(
         .addEventListener(
             "click",
             async () => {
-
                 mensaje.textContent =
                     "Guardando cambios...";
-
                 mensaje.style.color =
                     "#222";
-
                 const datos = {
-
                     estado_reparacion:
                         estado.value,
-
                     diagnostico:
                         diagnostico.value.trim(),
-
                     pruebas_realizadas:
                         pruebas.value.trim(),
-
                     observaciones_taller:
                         observaciones.value.trim(),
-
                     piezas:
                         piezas.value.trim(),
-
                     mano_obra:
                         manoObra.value.trim(),
-
                     coste_piezas:
                         Number(
                             costePiezas.value
                         ) || 0,
-
                     coste_mano_obra:
                         Number(
                             costeManoObra.value
                         ) || 0,
-
                     otros_costes:
                         Number(
                             otrosCostes.value
                         ) || 0,
-
                     total_presupuesto:
                         Number(
                             total.value
                         ) || 0,
-
                     estado_presupuesto:
                         estadoPresupuesto.value
                 };
-
                 try {
-
                     const {
                         error
                     } =
@@ -2467,50 +2229,35 @@ function crearFormularioEdicionInline(
                                 "id",
                                 reparacion.id
                             );
-
                     if (error) {
                         throw error;
                     }
-
                     Object.assign(
                         reparacion,
                         datos
                     );
-
                     mensaje.textContent =
                         "Cambios guardados correctamente.";
-
                     mensaje.style.color =
                         "#15803d";
-
                     setTimeout(
                         () => {
-
-                            mostrarDetalleReparacionInline(
-                                reparacion,
-                                contenedor
-                            );
-
+                            contenedor.style.display = "none";
                         },
                         500
                     );
-
                 } catch (error) {
-
                     console.error(
                         error
                     );
-
                     mensaje.textContent =
                         "Error al guardar: " +
                         error.message;
-
                     mensaje.style.color =
                         "#dc2626";
                 }
             }
         );
-
     document
         .getElementById(
             "cancelarEdicionInline"
@@ -2518,7 +2265,6 @@ function crearFormularioEdicionInline(
         .addEventListener(
             "click",
             () => {
-
                 mostrarDetalleReparacionInline(
                     reparacion,
                     contenedor
@@ -2527,415 +2273,962 @@ function crearFormularioEdicionInline(
         );
 }
 async function cargarPresupuestos() {
-
     mensajePresupuestos.textContent = "";
-
     listaPresupuestos.innerHTML = "";
-
     detallePresupuesto.style.display = "none";
-
-
-
     const { data, error } = await supabaseClient
-
         .from("recepciones")
-
         .select("*")
-
         .order("created_at", { ascending: false });
-
-
-
     if (error) {
-
         console.error(error);
-
         mensajePresupuestos.textContent =
             error.message || "No se han podido cargar los presupuestos.";
-
         return;
-
     }
-
-
-
     const presupuestos = (data || []).filter(reparacion =>
-
         Number(reparacion.total_presupuesto || 0) > 0 ||
-
         (reparacion.estado_presupuesto || "Pendiente") !== "Pendiente"
-
     );
-
-
-
     if (!presupuestos.length) {
-
         listaPresupuestos.innerHTML =
             "<p>No hay presupuestos registrados.</p>";
-
         return;
-
     }
-
-
-
     presupuestos.forEach(reparacion => {
-
         const tarjeta = document.createElement("div");
-
         tarjeta.className = "reparacion-card";
-
         tarjeta.innerHTML = `
-
             <div>
-
                 <strong>
                     ${escaparHTML(reparacion.numero_reparacion)}
                 </strong>
-
                 <p>
                     ${escaparHTML(reparacion.cliente || "Sin cliente")}
                 </p>
-
                 <p>
                     ${escaparHTML(
                         reparacion.tipo_material || "Sin material"
                     )}
                 </p>
-
             </div>
-
             <div>
-
                 <span>
                     ${escaparHTML(
                         reparacion.estado_presupuesto || "Pendiente"
                     )}
                 </span>
-
                 <p>
                     <strong>
-                        ${escaparHTML(
-                            reparacion.total_presupuesto || 0
-                        )} €
+                        ${(
+                            Number(
+                                reparacion.total_presupuesto || 0
+                            ) * 1.21
+                        ).toFixed(2)} €
                     </strong>
                 </p>
-
                 <button
                     type="button"
                     class="secondary-button"
                 >
                     VER DETALLE
                 </button>
-
             </div>
-
         `;
-
-
-
         const boton = tarjeta.querySelector("button");
-
-
-
         boton.addEventListener("click", () => {
-
             mostrarDetallePresupuesto(reparacion);
-
         });
-
-
-
         listaPresupuestos.appendChild(tarjeta);
-
     });
+}
+async function obtenerLogoPDF() {
+    try {
+        const respuesta = await fetch(
+            new URL("logo.jpg", window.location.href).href
+        );
 
+        if (!respuesta.ok) {
+            return null;
+        }
+
+        return new Uint8Array(
+            await respuesta.arrayBuffer()
+        );
+    } catch {
+        return null;
+    }
 }
 
+function escaparPDFTexto(texto) {
+    return String(texto ?? "")
+        .replace(/\\/g, "\\\\")
+        .replace(/\(/g, "\\(")
+        .replace(/\)/g, "\\)");
+}
 
+function textoPDFWinAnsi(texto) {
+    const mapa = {
+        "€": 0x80,
+        "‚": 0x82,
+        "ƒ": 0x83,
+        "„": 0x84,
+        "…": 0x85,
+        "†": 0x86,
+        "‡": 0x87,
+        "ˆ": 0x88,
+        "‰": 0x89,
+        "Š": 0x8a,
+        "‹": 0x8b,
+        "Œ": 0x8c,
+        "Ž": 0x8e,
+        "‘": 0x91,
+        "’": 0x92,
+        "“": 0x93,
+        "”": 0x94,
+        "•": 0x95,
+        "–": 0x96,
+        "—": 0x97,
+        "˜": 0x98,
+        "™": 0x99,
+        "š": 0x9a,
+        "›": 0x9b,
+        "œ": 0x9c,
+        "ž": 0x9e,
+        "Ÿ": 0x9f,
+        "á": 0xe1,
+        "é": 0xe9,
+        "í": 0xed,
+        "ó": 0xf3,
+        "ú": 0xfa,
+        "Á": 0xc1,
+        "É": 0xc9,
+        "Í": 0xcd,
+        "Ó": 0xd3,
+        "Ú": 0xda,
+        "ñ": 0xf1,
+        "Ñ": 0xd1,
+        "ü": 0xfc,
+        "Ü": 0xdc,
+        "¿": 0xbf,
+        "¡": 0xa1,
+        "º": 0xba,
+        "ª": 0xaa
+    };
 
+    const salida = [];
+
+    for (const caracter of String(texto ?? "")) {
+        const codigo = mapa[caracter];
+
+        if (codigo !== undefined) {
+            salida.push(codigo);
+        } else {
+            const cp = caracter.codePointAt(0);
+
+            if (cp >= 32 && cp <= 126) {
+                salida.push(cp);
+            } else {
+                salida.push(63);
+            }
+        }
+    }
+
+    return new Uint8Array(salida);
+}
+
+function bytesTextoPDF(texto) {
+    return textoPDFWinAnsi(texto);
+}
+
+function concatenarBytesPDF(partes) {
+    let longitud = 0;
+
+    for (const parte of partes) {
+        longitud += parte.length;
+    }
+
+    const resultado = new Uint8Array(longitud);
+    let posicion = 0;
+
+    for (const parte of partes) {
+        resultado.set(parte, posicion);
+        posicion += parte.length;
+    }
+
+    return resultado;
+}
+
+function extraerTamanoJPEG(bytes) {
+    for (let i = 2; i < bytes.length - 9; i++) {
+        if (bytes[i] !== 0xff) {
+            continue;
+        }
+
+        const marcador = bytes[i + 1];
+
+        if (
+            marcador >= 0xc0 &&
+            marcador <= 0xc3
+        ) {
+            const alto =
+                (bytes[i + 5] << 8) |
+                bytes[i + 6];
+            const ancho =
+                (bytes[i + 7] << 8) |
+                bytes[i + 8];
+
+            return { ancho, alto };
+        }
+    }
+
+    return {
+        ancho: 1,
+        alto: 1
+    };
+}
+
+async function guardarPresupuestoPDF(reparacion) {
+    try {
+        const logoBytes =
+            await obtenerLogoPDF();
+
+        const objetos = [];
+        const offsets = [0];
+
+        const agregarObjeto = (contenido) => {
+            objetos.push(contenido);
+            return objetos.length;
+        };
+
+        const subtotal =
+            Number(reparacion.total_presupuesto || 0);
+        const iva = subtotal * 0.21;
+        const total = subtotal + iva;
+
+        const fecha = formatearFecha(
+            reparacion.fecha_recepcion ||
+            reparacion.created_at
+        );
+
+        const datos = [
+            ["Número de reparación", reparacion.numero_reparacion],
+            ["Fecha", fecha],
+            ["Cliente", reparacion.cliente],
+            ["Teléfono", reparacion.telefono],
+            ["Email", reparacion.email],
+            ["Material", reparacion.tipo_material],
+            ["Marca", reparacion.marca],
+            ["Modelo", reparacion.modelo],
+            ["N.º de serie", reparacion.numero_serie]
+        ];
+
+        const lineas = [];
+        lineas.push({ texto: "RECEPCIÓN DE MATERIAL", tamano: 18, negrita: true, salto: 9 });
+        lineas.push({ texto: "SERVICIOS MUÑOZ", tamano: 13, negrita: true, salto: 12 });
+        lineas.push({ texto: "PRESUPUESTO", tamano: 16, negrita: true, salto: 12 });
+
+        for (const [etiqueta, valor] of datos) {
+            if (valor) {
+                lineas.push({
+                    texto: `${etiqueta}: ${valor}`,
+                    tamano: 10,
+                    negrita: false,
+                    salto: 5.5
+                });
+            }
+        }
+
+        lineas.push({ texto: "", tamano: 4, negrita: false, salto: 5 });
+        lineas.push({ texto: "CONCEPTOS", tamano: 12, negrita: true, salto: 8 });
+        lineas.push({ texto: `Piezas: ${reparacion.coste_piezas || 0} €`, tamano: 10, negrita: false, salto: 5.5 });
+        lineas.push({ texto: `Mano de obra: ${reparacion.coste_mano_obra || 0} €`, tamano: 10, negrita: false, salto: 5.5 });
+        lineas.push({ texto: `Otros costes: ${reparacion.otros_costes || 0} €`, tamano: 10, negrita: false, salto: 7 });
+        lineas.push({ texto: `Subtotal sin IVA: ${subtotal.toFixed(2)} €`, tamano: 11, negrita: true, salto: 6 });
+        lineas.push({ texto: `IVA (21 %): ${iva.toFixed(2)} €`, tamano: 11, negrita: true, salto: 6 });
+        lineas.push({ texto: `TOTAL CON IVA: ${total.toFixed(2)} €`, tamano: 14, negrita: true, salto: 10 });
+
+        if (reparacion.diagnostico) {
+            lineas.push({ texto: "DIAGNÓSTICO", tamano: 11, negrita: true, salto: 7 });
+            lineas.push({ texto: reparacion.diagnostico, tamano: 9, negrita: false, salto: 5 });
+        }
+
+        if (reparacion.piezas) {
+            lineas.push({ texto: "PIEZAS", tamano: 11, negrita: true, salto: 7 });
+            lineas.push({ texto: reparacion.piezas, tamano: 9, negrita: false, salto: 5 });
+        }
+
+        if (reparacion.mano_obra) {
+            lineas.push({ texto: "MANO DE OBRA", tamano: 11, negrita: true, salto: 7 });
+            lineas.push({ texto: reparacion.mano_obra, tamano: 9, negrita: false, salto: 5 });
+        }
+
+        const contenidoPartes = [];
+        contenidoPartes.push(bytesTextoPDF("q\n"));
+
+        let y = 785;
+        let logoAncho = 0;
+
+        if (logoBytes) {
+            const dimensiones = extraerTamanoJPEG(logoBytes);
+            const maxAncho = 35;
+            const maxAlto = 25;
+            const escala = Math.min(
+                maxAncho / dimensiones.ancho,
+                maxAlto / dimensiones.alto
+            );
+            const ancho = dimensiones.ancho * escala;
+            const alto = dimensiones.alto * escala;
+
+            logoAncho = ancho;
+
+            contenidoPartes.push(
+                bytesTextoPDF(
+                    `q ${ancho.toFixed(2)} 0 0 ${alto.toFixed(2)} 155 ${(y - alto + 4).toFixed(2)} cm /Im1 Do Q\n`
+                )
+            );
+        }
+
+        for (const linea of lineas) {
+            const texto = String(linea.texto || "");
+            const maxCaracteres =
+                linea.tamano >= 14 ? 55 : 92;
+            const trozos = [];
+
+            if (!texto) {
+                trozos.push("");
+            } else {
+                let restante = texto;
+
+                while (restante.length > maxCaracteres) {
+                    let corte = restante.lastIndexOf(" ", maxCaracteres);
+
+                    if (corte < 1) {
+                        corte = maxCaracteres;
+                    }
+
+                    trozos.push(restante.slice(0, corte));
+                    restante = restante.slice(corte).trim();
+                }
+
+                trozos.push(restante);
+            }
+
+            for (const trozo of trozos) {
+                y -= linea.salto;
+
+                if (y < 45) {
+                    break;
+                }
+
+                contenidoPartes.push(
+                    bytesTextoPDF(
+                        `BT /F${linea.negrita ? 2 : 1} ${linea.tamano} Tf 50 ${y.toFixed(2)} Td (${escaparPDFTexto(trozo)}) Tj ET\n`
+                    )
+                );
+            }
+        }
+
+        contenidoPartes.push(
+            bytesTextoPDF(
+                "BT /F1 8 Tf 50 28 Td (Servicios Muñoz - Presupuesto generado desde el sistema.) Tj ET\n"
+            )
+        );
+        contenidoPartes.push(bytesTextoPDF("Q\n"));
+
+        const contenido =
+            concatenarBytesPDF(contenidoPartes);
+
+        const objetoCatalogo = agregarObjeto(
+            bytesTextoPDF("<< /Type /Catalog /Pages 2 0 R >>")
+        );
+
+        const objetoPaginas = agregarObjeto(
+            bytesTextoPDF("<< /Type /Pages /Kids [3 0 R] /Count 1 >>")
+        );
+
+        const recursos =
+            logoBytes
+                ? "<< /Font << /F1 5 0 R /F2 6 0 R >> /XObject << /Im1 7 0 R >> >>"
+                : "<< /Font << /F1 5 0 R /F2 6 0 R >> >>";
+
+        const objetoPagina = agregarObjeto(
+            bytesTextoPDF(
+                `<< /Type /Page /Parent ${objetoPaginas} 0 R /MediaBox [0 0 595 842] /Resources ${recursos} /Contents 4 0 R >>`
+            )
+        );
+
+        const objetoContenido = agregarObjeto(
+            concatenarBytesPDF([
+                bytesTextoPDF(`<< /Length ${contenido.length} >>\nstream\n`),
+                contenido,
+                bytesTextoPDF("endstream")
+            ])
+        );
+
+        const objetoFuente = agregarObjeto(
+            bytesTextoPDF(
+                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"
+            )
+        );
+
+        const objetoFuenteNegrita = agregarObjeto(
+            bytesTextoPDF(
+                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"
+            )
+        );
+
+        if (logoBytes) {
+            const dimensiones = extraerTamanoJPEG(logoBytes);
+
+            agregarObjeto(
+                concatenarBytesPDF([
+                    bytesTextoPDF(
+                        `<< /Type /XObject /Subtype /Image /Width ${dimensiones.ancho} /Height ${dimensiones.alto} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logoBytes.length} >>\nstream\n`
+                    ),
+                    logoBytes,
+                    bytesTextoPDF("\nendstream")
+                ])
+            );
+        }
+
+        const partesPDF = [
+            bytesTextoPDF("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n")
+        ];
+
+        for (let i = 0; i < objetos.length; i++) {
+            offsets[i + 1] = partesPDF.reduce(
+                (totalActual, parte) =>
+                    totalActual + parte.length,
+                0
+            );
+
+            partesPDF.push(
+                bytesTextoPDF(`${i + 1} 0 obj\n`),
+                objetos[i],
+                bytesTextoPDF("\nendobj\n")
+            );
+        }
+
+        const posicionXref = partesPDF.reduce(
+            (totalActual, parte) =>
+                totalActual + parte.length,
+            0
+        );
+
+        partesPDF.push(
+            bytesTextoPDF(
+                `xref\n0 ${objetos.length + 1}\n0000000000 65535 f \n`
+            )
+        );
+
+        for (let i = 1; i <= objetos.length; i++) {
+            partesPDF.push(
+                bytesTextoPDF(
+                    `${String(offsets[i]).padStart(10, "0")} 00000 n \n`
+                )
+            );
+        }
+
+        partesPDF.push(
+            bytesTextoPDF(
+                `trailer\n<< /Size ${objetos.length + 1} /Root ${objetoCatalogo} 0 R >>\nstartxref\n${posicionXref}\n%%EOF`
+            )
+        );
+
+        const pdfBytes =
+            concatenarBytesPDF(partesPDF);
+
+        const blob = new Blob(
+            [pdfBytes],
+            { type: "application/pdf" }
+        );
+
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement("a");
+        enlace.href = url;
+        enlace.download =
+            `Presupuesto_${reparacion.numero_reparacion || "reparacion"}.pdf`;
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+        }, 2000);
+    } catch (error) {
+        console.error(error);
+
+        alert(
+            "No se ha podido generar el PDF. " +
+            (error.message || "Error desconocido.")
+        );
+    }
+}
+
+function imprimirPresupuesto(reparacion) {
+    const subtotal =
+        Number(reparacion.total_presupuesto || 0);
+    const iva =
+        subtotal * 0.21;
+    const total =
+        subtotal + iva;
+    const fecha =
+        formatearFecha(
+            reparacion.fecha_recepcion ||
+            reparacion.created_at
+        );
+    const ventana =
+        window.open(
+            "",
+            "_blank",
+            "width=900,height=1000"
+        );
+    if (!ventana) {
+        alert(
+            "El navegador ha bloqueado la ventana del PDF. Permite las ventanas emergentes para esta página."
+        );
+        return;
+    }
+    ventana.document.write(`
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Presupuesto ${escaparHTML(reparacion.numero_reparacion)}</title>
+<style>
+@page {
+    size: A4;
+    margin: 18mm;
+}
+* {
+    box-sizing: border-box;
+}
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #1f2937;
+    background: #fff;
+}
+.documento {
+    max-width: 800px;
+    margin: 0 auto;
+}
+.cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px solid #111827;
+    padding-bottom: 18px;
+    margin-bottom: 25px;
+}
+.marca {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.logo {
+    width: 85px;
+    height: 85px;
+    object-fit: contain;
+}
+h1 {
+    margin: 0;
+    font-size: 22px;
+}
+.empresa {
+    margin-top: 5px;
+    font-size: 13px;
+    color: #6b7280;
+}
+.titulo {
+    text-align: right;
+}
+.titulo h2 {
+    margin: 0;
+    font-size: 25px;
+}
+.numero {
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: bold;
+}
+.bloques {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 25px;
+}
+.bloque {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 14px;
+}
+.bloque h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    text-transform: uppercase;
+}
+.dato {
+    margin: 5px 0;
+    font-size: 13px;
+}
+.tabla {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+.tabla th,
+.tabla td {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 11px 8px;
+    text-align: left;
+    font-size: 13px;
+}
+.tabla th:last-child,
+.tabla td:last-child {
+    text-align: right;
+}
+.totales {
+    width: 320px;
+    margin-left: auto;
+    margin-top: 20px;
+}
+.fila-total {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 0;
+    font-size: 14px;
+}
+.total-final {
+    border-top: 2px solid #111827;
+    margin-top: 5px;
+    padding-top: 12px;
+    font-size: 19px;
+    font-weight: bold;
+}
+.pie {
+    margin-top: 45px;
+    padding-top: 15px;
+    border-top: 1px solid #d1d5db;
+    text-align: center;
+    font-size: 11px;
+    color: #6b7280;
+}
+</style>
+</head>
+<body>
+<div class="documento">
+<header class="cabecera">
+    <div class="marca">
+        <img
+            src="logo.jpg"
+            class="logo"
+            alt="Servicios Muñoz"
+        >
+        <div>
+            <h1>RECEPCIÓN DE MATERIAL</h1>
+            <div class="empresa">SERVICIOS MUÑOZ</div>
+        </div>
+    </div>
+    <div class="titulo">
+        <h2>PRESUPUESTO</h2>
+        <div class="numero">
+            ${escaparHTML(reparacion.numero_reparacion)}
+        </div>
+        <div class="empresa">${escaparHTML(fecha)}</div>
+    </div>
+</header>
+<section class="bloques">
+    <div class="bloque">
+        <h3>Cliente</h3>
+        <div class="dato"><strong>Nombre:</strong> ${escaparHTML(reparacion.cliente || "")}</div>
+        <div class="dato"><strong>Teléfono:</strong> ${escaparHTML(reparacion.telefono || "")}</div>
+        <div class="dato"><strong>Email:</strong> ${escaparHTML(reparacion.email || "")}</div>
+    </div>
+    <div class="bloque">
+        <h3>Material</h3>
+        <div class="dato"><strong>Tipo:</strong> ${escaparHTML(reparacion.tipo_material || "")}</div>
+        <div class="dato"><strong>Marca:</strong> ${escaparHTML(reparacion.marca || "")}</div>
+        <div class="dato"><strong>Modelo:</strong> ${escaparHTML(reparacion.modelo || "")}</div>
+        <div class="dato"><strong>N.º serie:</strong> ${escaparHTML(reparacion.numero_serie || "")}</div>
+    </div>
+</section>
+<table class="tabla">
+    <thead>
+        <tr>
+            <th>Concepto</th>
+            <th>Importe</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Piezas</td>
+            <td>${Number(reparacion.coste_piezas || 0).toFixed(2)} €</td>
+        </tr>
+        <tr>
+            <td>Mano de obra</td>
+            <td>${Number(reparacion.coste_mano_obra || 0).toFixed(2)} €</td>
+        </tr>
+        <tr>
+            <td>Otros costes</td>
+            <td>${Number(reparacion.otros_costes || 0).toFixed(2)} €</td>
+        </tr>
+    </tbody>
+</table>
+<div class="totales">
+    <div class="fila-total">
+        <span>Subtotal sin IVA</span>
+        <strong>${subtotal.toFixed(2)} €</strong>
+    </div>
+    <div class="fila-total">
+        <span>IVA (21 %)</span>
+        <strong>${iva.toFixed(2)} €</strong>
+    </div>
+    <div class="fila-total total-final">
+        <span>TOTAL</span>
+        <strong>${total.toFixed(2)} €</strong>
+    </div>
+</div>
+<div class="pie">
+    Presupuesto correspondiente a la reparación ${escaparHTML(reparacion.numero_reparacion)}.
+</div>
+</div>
+</body>
+</html>
+    `);
+    ventana.document.close();
+    setTimeout(
+        () => {
+            ventana.focus();
+            ventana.print();
+        },
+        700
+    );
+}
 function mostrarDetallePresupuesto(reparacion) {
-
     detallePresupuesto.style.display = "block";
-
-
-
     contenidoDetallePresupuesto.innerHTML = `
-
         <p>
             <strong>Número de reparación:</strong>
             ${escaparHTML(reparacion.numero_reparacion)}
         </p>
-
         <p>
             <strong>Cliente:</strong>
             ${escaparHTML(reparacion.cliente)}
         </p>
-
         <p>
             <strong>Teléfono:</strong>
             ${escaparHTML(reparacion.telefono)}
         </p>
-
         <p>
             <strong>Material:</strong>
             ${escaparHTML(reparacion.tipo_material)}
         </p>
-
         <p>
             <strong>Marca:</strong>
             ${escaparHTML(reparacion.marca)}
         </p>
-
         <p>
             <strong>Modelo:</strong>
             ${escaparHTML(reparacion.modelo)}
         </p>
-
         <p>
             <strong>Estado del presupuesto:</strong>
             ${escaparHTML(
                 reparacion.estado_presupuesto || "Pendiente"
             )}
         </p>
-
-
-
         <hr>
-
-
-
         <p>
             <strong>Coste de piezas:</strong>
             ${escaparHTML(reparacion.coste_piezas || 0)} €
         </p>
-
         <p>
             <strong>Coste de mano de obra:</strong>
             ${escaparHTML(reparacion.coste_mano_obra || 0)} €
         </p>
-
         <p>
             <strong>Otros costes:</strong>
             ${escaparHTML(reparacion.otros_costes || 0)} €
         </p>
-
-        <p>
-            <strong>Total presupuesto:</strong>
-            ${escaparHTML(reparacion.total_presupuesto || 0)} €
-        </p>
-
-
-
         <hr>
-
-
-
+        <p>
+            <strong>Subtotal sin IVA:</strong>
+            ${Number(reparacion.total_presupuesto || 0).toFixed(2)} €
+        </p>
+        <p>
+            <strong>IVA (21 %):</strong>
+            ${(Number(reparacion.total_presupuesto || 0) * 0.21).toFixed(2)} €
+        </p>
+        <p>
+            <strong>Total con IVA:</strong>
+            ${(Number(reparacion.total_presupuesto || 0) * 1.21).toFixed(2)} €
+        </p>
+        <hr>
         <p>
             <strong>Diagnóstico:</strong>
         </p>
-
         <p>
             ${escaparHTML(
                 reparacion.diagnostico || "Sin diagnóstico"
             )}
         </p>
-
-
-
         <p>
             <strong>Piezas:</strong>
         </p>
-
         <p>
             ${escaparHTML(
                 reparacion.piezas || "Sin piezas registradas"
             )}
         </p>
-
-
-
         <p>
             <strong>Mano de obra:</strong>
         </p>
-
         <p>
             ${escaparHTML(
                 reparacion.mano_obra ||
                 "Sin mano de obra registrada"
             )}
         </p>
-
+        <div
+            style="
+                display:flex;
+                gap:10px;
+                flex-wrap:wrap;
+                margin-top:25px;
+            "
+        >
+            <button
+                type="button"
+                class="primary-button"
+                id="imprimirPresupuesto"
+            >
+                🖨️ IMPRIMIR
+            </button>
+            <button
+                type="button"
+                class="secondary-button"
+                id="guardarPdfPresupuesto"
+            >
+                📄 GUARDAR PDF
+            </button>
+        </div>
     `;
+    const botonImprimir =
+        document.getElementById(
+            "imprimirPresupuesto"
+        );
+    botonImprimir?.addEventListener(
+        "click",
+        () => {
+            imprimirPresupuesto(
+                reparacion
+            );
+        }
+    );
 
+    const botonGuardarPdf =
+        document.getElementById(
+            "guardarPdfPresupuesto"
+        );
+    botonGuardarPdf?.addEventListener(
+        "click",
+        async () => {
+            await guardarPresupuestoPDF(
+                reparacion
+            );
+        }
+    );
 }
-
-
-
 loginButton.addEventListener("click", iniciarSesion);
-
-
-
 passwordInput.addEventListener("keydown", event => {
-
     if (event.key === "Enter") {
-
         iniciarSesion();
-
     }
-
 });
-
-
-
 logoutButton.addEventListener("click", cerrarSesion);
-
-
-
 nuevaRecepcion.addEventListener("click", () => {
-
     establecerDatosRecepcion();
-
     prepararSelectorFotos();
-
     mostrarPantalla(receptionScreen);
-
 });
-
-
-
 volverDashboard.addEventListener(
     "click",
     volverAlDashboard
 );
-
-
-
 cancelarRecepcion.addEventListener(
     "click",
     volverAlDashboard
 );
-
-
-
 receptionForm.addEventListener("submit", event => {
-
     event.preventDefault();
-
     guardarRecepcion();
-
 });
-
-
-
 reparacionesButton.addEventListener(
     "click",
     async () => {
-
         mostrarPantalla(reparacionesScreen);
-
         await cargarReparaciones();
-
     }
 );
-
-
-
 volverDashboardReparaciones.addEventListener(
     "click",
     () => {
-
         detalleReparacion.style.display = "none";
-
         mostrarPantalla(dashboardScreen);
-
     }
 );
-
-
-
 actualizarReparaciones.addEventListener(
     "click",
     cargarReparaciones
 );
-
-
-
 cerrarDetalleReparacion.addEventListener(
     "click",
     () => {
-
         detalleReparacion.style.display = "none";
-
     }
 );
-
-
-
 presupuestosButton.addEventListener(
     "click",
     async () => {
-
         mostrarPantalla(presupuestosScreen);
-
         await cargarPresupuestos();
-
     }
 );
-
-
-
 volverDashboardPresupuestos.addEventListener(
     "click",
     () => {
-
         detallePresupuesto.style.display = "none";
-
         mostrarPantalla(dashboardScreen);
-
     }
 );
-
-
-
 actualizarPresupuestos.addEventListener(
     "click",
     cargarPresupuestos
 );
-
-
-
 cerrarDetallePresupuesto.addEventListener(
     "click",
     () => {
-
         detallePresupuesto.style.display = "none";
-
     }
 );
-
-
-
+const tarjetasDashboard = Array.from(document.querySelectorAll("#dashboardScreen .dashboard-card"));
+const tarjetaClientes = tarjetasDashboard.find(t => t.querySelector("strong")?.textContent.trim() === "CLIENTES");
+const tarjetaBuscar = tarjetasDashboard.find(t => t.querySelector("strong")?.textContent.trim() === "BUSCAR");
+const tarjetaAdministracion = tarjetasDashboard.find(t => t.querySelector("strong")?.textContent.trim() === "ADMINISTRACIÓN");
+tarjetaClientes?.addEventListener("click", async () => { crearPantallasExtra(); mostrarPantalla(clientesScreen); await cargarClientes(); });
+tarjetaBuscar?.addEventListener("click", async () => { crearPantallasExtra(); mostrarPantalla(buscarScreen); await prepararBusqueda(); document.getElementById("campoBuscar")?.focus(); });
+tarjetaAdministracion?.addEventListener("click", async () => { crearPantallasExtra(); mostrarPantalla(administracionScreen); cargarConfiguracion(); await cargarUsuariosAdmin(); });
 supabaseClient.auth.getSession().then(({ data }) => {
-
     if (data?.session) {
-
        usuarioActual =
     localStorage.getItem("usuarioHorusa") ||
     data.session.user?.user_metadata?.usuario ||
     "";
-
         mostrarAplicacion();
-
     }
-
 });
-
-
-
 window.addEventListener("load", () => {
-
     prepararSelectorFotos();
-
 });
