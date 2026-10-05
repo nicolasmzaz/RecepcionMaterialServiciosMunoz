@@ -2800,8 +2800,10 @@ function mostrarDetalleAlbaran(albaran) {
 function crearContenedorPDF(html) {
     const contenedor = document.createElement("div");
 
-    contenedor.style.position = "absolute";
-    contenedor.style.left = "-10000px";
+    // html2canvas necesita que el contenido exista en una zona visible
+    // del documento para poder capturarlo correctamente.
+    contenedor.style.position = "fixed";
+    contenedor.style.left = "0";
     contenedor.style.top = "0";
     contenedor.style.width = "794px";
     contenedor.style.background = "#ffffff";
@@ -2809,6 +2811,8 @@ function crearContenedorPDF(html) {
     contenedor.style.padding = "0";
     contenedor.style.margin = "0";
     contenedor.style.boxSizing = "border-box";
+    contenedor.style.zIndex = "2147483647";
+    contenedor.style.pointerEvents = "none";
 
     contenedor.innerHTML = html;
     document.body.appendChild(contenedor);
@@ -2987,9 +2991,6 @@ async function guardarAlbaranPDF(albaran) {
             .from(contenedor)
             .outputPdf("arraybuffer");
 
-        // Creamos el Blob directamente desde el ArrayBuffer.
-        // Esto evita que el navegador/intermediario convierta los saltos
-        // de línea binarios del PDF en caracteres "?" y corrompa el PDF.
         const pdfBlob = new Blob([pdfArrayBuffer], {
             type: "application/pdf"
         });
@@ -3494,9 +3495,6 @@ async function guardarPresupuestoPDF(reparacion) {
             .from(contenedor)
             .outputPdf("arraybuffer");
 
-        // Creamos el Blob directamente desde el ArrayBuffer.
-        // Esto evita que el navegador/intermediario convierta los saltos
-        // de línea binarios del PDF en caracteres "?" y corrompa el PDF.
         const pdfBlob = new Blob([pdfArrayBuffer], {
             type: "application/pdf"
         });
