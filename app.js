@@ -2800,9 +2800,9 @@ function mostrarDetalleAlbaran(albaran) {
 function crearContenedorPDF(html) {
     const contenedor = document.createElement("div");
 
-    // html2canvas necesita que el contenido exista en una zona visible
-    // del documento para poder capturarlo correctamente.
-    contenedor.style.position = "fixed";
+    // El contenido debe estar realmente dentro del área visible del
+    // documento para que html2canvas pueda capturarlo.
+    contenedor.style.position = "absolute";
     contenedor.style.left = "0";
     contenedor.style.top = "0";
     contenedor.style.width = "794px";
@@ -2811,8 +2811,8 @@ function crearContenedorPDF(html) {
     contenedor.style.padding = "0";
     contenedor.style.margin = "0";
     contenedor.style.boxSizing = "border-box";
-    contenedor.style.zIndex = "2147483647";
-    contenedor.style.pointerEvents = "none";
+    contenedor.style.visibility = "visible";
+    contenedor.style.opacity = "1";
 
     contenedor.innerHTML = html;
     document.body.appendChild(contenedor);
@@ -2966,7 +2966,7 @@ async function guardarAlbaranPDF(albaran) {
             boton.textContent = "GENERANDO PDF...";
         }
 
-        const pdfArrayBuffer = await window.html2pdf()
+        const pdfBlob = await window.html2pdf()
             .set({
                 margin: 0,
                 filename: `Albaran_${albaran.numero_albaran || "albaran"}.pdf`,
@@ -3470,7 +3470,7 @@ async function guardarPresupuestoPDF(reparacion) {
             boton.textContent = "GENERANDO PDF...";
         }
 
-        const pdfArrayBuffer = await window.html2pdf()
+        const pdfBlob = await window.html2pdf()
             .set({
                 margin: 0,
                 filename: `Presupuesto_${reparacion.numero_reparacion || "reparacion"}.pdf`,
