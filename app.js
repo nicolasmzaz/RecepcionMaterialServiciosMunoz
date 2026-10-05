@@ -2797,49 +2797,15 @@ function mostrarDetalleAlbaran(albaran) {
     detalleAlbaran.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function crearContenedorPDF(html) {
-    const contenedor = document.createElement("div");
-
-    contenedor.style.position = "absolute";
-    contenedor.style.left = "-10000px";
-    contenedor.style.top = "0";
-    contenedor.style.width = "794px";
-    contenedor.style.background = "#ffffff";
-    contenedor.style.color = "#1f2937";
-    contenedor.style.padding = "0";
-    contenedor.style.margin = "0";
-    contenedor.style.boxSizing = "border-box";
-
-    contenedor.innerHTML = html;
-    document.body.appendChild(contenedor);
-
-    return contenedor;
-}
-
-async function esperarImagenesPDF(contenedor) {
-    const imagenes = Array.from(contenedor.querySelectorAll("img"));
-
-    await Promise.all(
-        imagenes.map(img => {
-            if (img.complete && img.naturalWidth > 0) {
-                return Promise.resolve();
-            }
-
-            return new Promise(resolve => {
-                img.onload = resolve;
-                img.onerror = resolve;
-            });
-        })
-    );
-}
-
 async function guardarAlbaranPDF(albaran) {
-    let contenedor = null;
-
     try {
-        if (typeof window.html2pdf !== "function") {
-            throw new Error("No se ha podido cargar el generador de PDF. Recarga la página e inténtalo de nuevo.");
-        }
+        const logoBytes = await obtenerLogoPDF();
+        const objetos = [];
+        const offsets = [0];
+        const agregarObjeto = contenido => {
+            objetos.push(contenido);
+            return objetos.length;
+        };
 
         const items = Array.isArray(albaran.items) ? albaran.items : [];
         const subtotal = Number(albaran.subtotal || 0);
@@ -2848,180 +2814,125 @@ async function guardarAlbaranPDF(albaran) {
         const total = Number(albaran.total || (subtotal + iva));
         const fecha = formatearFechaHoraAlbaran(albaran.fecha_albaran || albaran.created_at);
 
-        const filas = items.length
-            ? items.map(item => `
-                <tr>
-                    <td>${escaparHTML(item.descripcion || "")}</td>
-                    <td>${Number(item.cantidad || 0)}</td>
-                    <td>${Number(item.precio || 0).toFixed(2)} €</td>
-                    <td>${(Number(item.cantidad || 0) * Number(item.precio || 0)).toFixed(2)} €</td>
-                </tr>
-            `).join("")
-            : `<tr><td colspan="4">Sin material registrado.</td></tr>`;
+        const lineas = [];
+        lineas.push({ texto: "RECEPCIÓN DE MATERIAL", tamano: 18, negrita: true, salto: 9 });
+        lineas.push({ texto: "SERVICIOS MUÑOZ", tamano: 13, negrita: true, salto: 12 });
+        lineas.push({ texto: "ALBARÁN", tamano: 16, negrita: true, salto: 12 });
+        lineas.push({ texto: `Número: ${albaran.numero_albaran || ""}`, tamano: 10, negrita: true, salto: 5.5 });
+        lineas.push({ texto: `Fecha: ${fecha}`, tamano: 10, negrita: false, salto: 7 });
+        lineas.push({ texto: `Cliente: ${albaran.cliente || ""}`, tamano: 10, negrita: false, salto: 5.5 });
+        if (albaran.telefono) lineas.push({ texto: `Teléfono: ${albaran.telefono}`, tamano: 10, negrita: false, salto: 5.5 });
+        if (albaran.email) lineas.push({ texto: `Email: ${albaran.email}`, tamano: 10, negrita: false, salto: 7 });
+        lineas.push({ texto: "MATERIAL ENTREGADO", tamano: 12, negrita: true, salto: 8 });
 
-        const html = `
-            <div class="pdf-documento">
-                <style>
-                    * { box-sizing: border-box; }
-                    .pdf-documento {
-                        width: 794px;
-                        min-height: 1123px;
-                        padding: 68px;
-                        background: #fff;
-                        color: #1f2937;
-                        font-family: Arial, Helvetica, sans-serif;
-                    }
-                    .pdf-cabecera {
-                        display:flex;
-                        justify-content:space-between;
-                        align-items:center;
-                        border-bottom:3px solid #111827;
-                        padding-bottom:18px;
-                        margin-bottom:25px;
-                    }
-                    .pdf-marca { display:flex; align-items:center; gap:15px; }
-                    .pdf-logo { width:85px; height:85px; object-fit:contain; }
-                    .pdf-documento h1 { margin:0; font-size:22px; }
-                    .pdf-empresa { margin-top:5px; font-size:13px; color:#6b7280; }
-                    .pdf-titulo { text-align:right; }
-                    .pdf-titulo h2 { margin:0; font-size:25px; }
-                    .pdf-numero { margin-top:6px; font-size:14px; font-weight:bold; }
-                    .pdf-bloques { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:25px; }
-                    .pdf-bloque { border:1px solid #d1d5db; border-radius:8px; padding:14px; }
-                    .pdf-bloque h3 { margin:0 0 10px; font-size:14px; text-transform:uppercase; }
-                    .pdf-dato { margin:5px 0; font-size:13px; }
-                    .pdf-documento table { width:100%; border-collapse:collapse; margin-top:15px; }
-                    .pdf-documento th, .pdf-documento td { border-bottom:1px solid #e5e7eb; padding:10px 8px; font-size:13px; text-align:left; }
-                    .pdf-documento th:nth-child(n+2), .pdf-documento td:nth-child(n+2) { text-align:right; }
-                    .pdf-totales { width:320px; margin-left:auto; margin-top:20px; }
-                    .pdf-fila { display:flex; justify-content:space-between; padding:7px 0; }
-                    .pdf-total { border-top:2px solid #111827; margin-top:5px; padding-top:12px; font-size:19px; font-weight:bold; }
-                    .pdf-pie { margin-top:45px; padding-top:15px; border-top:1px solid #d1d5db; text-align:center; font-size:11px; color:#6b7280; }
-                    .pdf-observaciones { margin-top:35px; font-size:13px; line-height:1.5; }
-                </style>
-
-                <header class="pdf-cabecera">
-                    <div class="pdf-marca">
-                        <img src="logo.jpg" class="pdf-logo" alt="Servicios Muñoz">
-                        <div>
-                            <h1>RECEPCIÓN DE MATERIAL</h1>
-                            <div class="pdf-empresa">SERVICIOS MUÑOZ</div>
-                        </div>
-                    </div>
-                    <div class="pdf-titulo">
-                        <h2>ALBARÁN</h2>
-                        <div class="pdf-numero">${escaparHTML(albaran.numero_albaran || "")}</div>
-                        <div class="pdf-empresa">${escaparHTML(fecha)}</div>
-                    </div>
-                </header>
-
-                <section class="pdf-bloques">
-                    <div class="pdf-bloque">
-                        <h3>Cliente</h3>
-                        <div class="pdf-dato"><strong>Nombre:</strong> ${escaparHTML(albaran.cliente || "")}</div>
-                        <div class="pdf-dato"><strong>Teléfono:</strong> ${escaparHTML(albaran.telefono || "")}</div>
-                        <div class="pdf-dato"><strong>Email:</strong> ${escaparHTML(albaran.email || "")}</div>
-                    </div>
-                    <div class="pdf-bloque">
-                        <h3>Entrega</h3>
-                        <div class="pdf-dato">Material entregado según este albarán.</div>
-                    </div>
-                </section>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Material / descripción</th>
-                            <th>Cantidad</th>
-                            <th>Precio unitario</th>
-                            <th>Importe</th>
-                        </tr>
-                    </thead>
-                    <tbody>${filas}</tbody>
-                </table>
-
-                <div class="pdf-totales">
-                    <div class="pdf-fila"><span>Subtotal</span><strong>${subtotal.toFixed(2)} €</strong></div>
-                    <div class="pdf-fila"><span>IVA (${ivaPorcentaje.toFixed(2)} %)</span><strong>${iva.toFixed(2)} €</strong></div>
-                    <div class="pdf-fila pdf-total"><span>TOTAL</span><strong>${total.toFixed(2)} €</strong></div>
-                </div>
-
-                ${albaran.observaciones ? `<div class="pdf-observaciones"><strong>Observaciones</strong><p>${escaparHTML(albaran.observaciones)}</p></div>` : ""}
-
-                <div class="pdf-pie">Albarán ${escaparHTML(albaran.numero_albaran || "")} · SERVICIOS MUÑOZ</div>
-            </div>
-        `;
-
-        contenedor = crearContenedorPDF(html);
-        await esperarImagenesPDF(contenedor);
-
-        const boton = document.getElementById("guardarPdfAlbaranDetalle");
-        const textoOriginal = boton ? boton.textContent : "";
-        if (boton) {
-            boton.disabled = true;
-            boton.textContent = "GENERANDO PDF...";
+        if (items.length) {
+            items.forEach((item, indice) => {
+                const cantidad = Number(item.cantidad || 0);
+                const precio = Number(item.precio || 0);
+                const importe = cantidad * precio;
+                lineas.push({
+                    texto: `${indice + 1}. ${item.descripcion || "Material"} | Cant.: ${cantidad} | ${precio.toFixed(2)} € | ${importe.toFixed(2)} €`,
+                    tamano: 9,
+                    negrita: false,
+                    salto: 6
+                });
+            });
+        } else {
+            lineas.push({ texto: "Sin material registrado.", tamano: 9, negrita: false, salto: 6 });
         }
 
-        const pdfBlob = await window.html2pdf()
-            .set({
-                margin: 0,
-                filename: `Albaran_${albaran.numero_albaran || "albaran"}.pdf`,
-                image: { type: "jpeg", quality: 0.98 },
-                html2canvas: {
-                    scale: 2,
-                    useCORS: true,
-                    allowTaint: false,
-                    backgroundColor: "#ffffff",
-                    logging: false
-                },
-                jsPDF: {
-                    unit: "mm",
-                    format: "a4",
-                    orientation: "portrait",
-                    compress: true
-                },
-                pagebreak: {
-                    mode: ["css", "legacy"]
+        lineas.push({ texto: `Subtotal: ${subtotal.toFixed(2)} €`, tamano: 11, negrita: true, salto: 6 });
+        lineas.push({ texto: `IVA (${ivaPorcentaje.toFixed(2)} %): ${iva.toFixed(2)} €`, tamano: 11, negrita: true, salto: 6 });
+        lineas.push({ texto: `TOTAL: ${total.toFixed(2)} €`, tamano: 14, negrita: true, salto: 10 });
+
+        if (albaran.observaciones) {
+            lineas.push({ texto: "OBSERVACIONES", tamano: 11, negrita: true, salto: 7 });
+            lineas.push({ texto: albaran.observaciones, tamano: 9, negrita: false, salto: 5 });
+        }
+
+        const contenidoPartes = [bytesTextoPDF("q\n")];
+        let y = 785;
+
+        if (logoBytes) {
+            const dimensiones = extraerTamanoJPEG(logoBytes);
+            const maxAncho = 35;
+            const maxAlto = 25;
+            const escala = Math.min(maxAncho / dimensiones.ancho, maxAlto / dimensiones.alto);
+            const ancho = dimensiones.ancho * escala;
+            const alto = dimensiones.alto * escala;
+            contenidoPartes.push(bytesTextoPDF(`q ${ancho.toFixed(2)} 0 0 ${alto.toFixed(2)} 155 ${(y - alto + 4).toFixed(2)} cm /Im1 Do Q\n`));
+        }
+
+        for (const linea of lineas) {
+            const texto = String(linea.texto || "");
+            const maxCaracteres = linea.tamano >= 14 ? 55 : 88;
+            const trozos = [];
+            if (!texto) trozos.push("");
+            else {
+                let restante = texto;
+                while (restante.length > maxCaracteres) {
+                    let corte = restante.lastIndexOf(" ", maxCaracteres);
+                    if (corte < 1) corte = maxCaracteres;
+                    trozos.push(restante.slice(0, corte));
+                    restante = restante.slice(corte).trim();
                 }
-            })
-            .from(contenedor)
-            .outputPdf("arraybuffer");
-
-        const pdfBlob = new Blob([pdfArrayBuffer], {
-        type: "application/pdf"
-      });
-
-      if (!pdfArrayBuffer || pdfArrayBuffer.byteLength < 100 || pdfBlob.size < 100) {
-            throw new Error("El PDF generado está vacío o no es válido.");
+                trozos.push(restante);
+            }
+            for (const trozo of trozos) {
+                y -= linea.salto;
+                if (y < 45) break;
+                contenidoPartes.push(bytesTextoPDF(`BT /F${linea.negrita ? 2 : 1} ${linea.tamano} Tf 50 ${y.toFixed(2)} Td (${escaparPDFTexto(trozo)}) Tj ET\n`));
+            }
         }
 
-        const url = URL.createObjectURL(pdfBlob);
+        contenidoPartes.push(bytesTextoPDF("BT /F1 8 Tf 50 28 Td (Servicios Munoz - Albaran generado desde el sistema.) Tj ET\n"));
+        contenidoPartes.push(bytesTextoPDF("Q\n"));
+        const contenido = concatenarBytesPDF(contenidoPartes);
+
+        const objetoCatalogo = agregarObjeto(bytesTextoPDF("<< /Type /Catalog /Pages 2 0 R >>"));
+        const objetoPaginas = agregarObjeto(bytesTextoPDF("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"));
+        const recursos = logoBytes
+            ? "<< /Font << /F1 5 0 R /F2 6 0 R >> /XObject << /Im1 7 0 R >> >>"
+            : "<< /Font << /F1 5 0 R /F2 6 0 R >> >>";
+        const objetoPagina = agregarObjeto(bytesTextoPDF(`<< /Type /Page /Parent ${objetoPaginas} 0 R /MediaBox [0 0 595 842] /Resources ${recursos} /Contents 4 0 R >>`));
+        agregarObjeto(concatenarBytesPDF([bytesTextoPDF(`<< /Length ${contenido.length} >>\nstream\n`), contenido, bytesTextoPDF("endstream")]));
+        agregarObjeto(bytesTextoPDF("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"));
+        agregarObjeto(bytesTextoPDF("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"));
+
+        if (logoBytes) {
+            const dimensiones = extraerTamanoJPEG(logoBytes);
+            agregarObjeto(concatenarBytesPDF([
+                bytesTextoPDF(`<< /Type /XObject /Subtype /Image /Width ${dimensiones.ancho} /Height ${dimensiones.alto} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logoBytes.length} >>\nstream\n`),
+                logoBytes,
+                bytesTextoPDF("\nendstream")
+            ]));
+        }
+
+        const partesPDF = [bytesTextoPDF("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n")];
+        for (let i = 0; i < objetos.length; i++) {
+            offsets[i + 1] = partesPDF.reduce((totalActual, parte) => totalActual + parte.length, 0);
+            partesPDF.push(bytesTextoPDF(`${i + 1} 0 obj\n`), objetos[i], bytesTextoPDF("\nendobj\n"));
+        }
+        const posicionXref = partesPDF.reduce((totalActual, parte) => totalActual + parte.length, 0);
+        partesPDF.push(bytesTextoPDF(`xref\n0 ${objetos.length + 1}\n0000000000 65535 f \n`));
+        for (let i = 1; i <= objetos.length; i++) {
+            partesPDF.push(bytesTextoPDF(`${String(offsets[i]).padStart(10, "0")} 00000 n \n`));
+        }
+        partesPDF.push(bytesTextoPDF(`trailer\n<< /Size ${objetos.length + 1} /Root ${objetoCatalogo} 0 R >>\nstartxref\n${posicionXref}\n%%EOF`));
+
+        const pdfBytes = concatenarBytesPDF(partesPDF);
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
         const enlace = document.createElement("a");
         enlace.href = url;
         enlace.download = `Albaran_${albaran.numero_albaran || "albaran"}.pdf`;
-        enlace.style.display = "none";
         document.body.appendChild(enlace);
         enlace.click();
         enlace.remove();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
-
-        if (boton) {
-            boton.disabled = false;
-            boton.textContent = textoOriginal || "📄 GUARDAR PDF";
-        }
     } catch (error) {
-        console.error("Error al generar el PDF del albarán:", error);
-        alert("No se ha podido generar el PDF. " + (error.message || "Error desconocido."));
-
-        const boton = document.getElementById("guardarPdfAlbaranDetalle");
-        if (boton) {
-            boton.disabled = false;
-            boton.textContent = "📄 GUARDAR PDF";
-        }
-    } finally {
-        if (contenedor) {
-            contenedor.remove();
-        }
+        console.error(error);
+        alert("No se ha podido generar el PDF del albarán. " + (error.message || "Error desconocido."));
     }
 }
 
@@ -3345,187 +3256,280 @@ function extraerTamanoJPEG(bytes) {
 }
 
 async function guardarPresupuestoPDF(reparacion) {
-    let contenedor = null;
-
     try {
-        if (typeof window.html2pdf !== "function") {
-            throw new Error("No se ha podido cargar el generador de PDF. Recarga la página e inténtalo de nuevo.");
-        }
+        const logoBytes =
+            await obtenerLogoPDF();
 
-        const subtotal = Number(reparacion.total_presupuesto || 0);
+        const objetos = [];
+        const offsets = [0];
+
+        const agregarObjeto = (contenido) => {
+            objetos.push(contenido);
+            return objetos.length;
+        };
+
+        const subtotal =
+            Number(reparacion.total_presupuesto || 0);
         const iva = subtotal * 0.21;
         const total = subtotal + iva;
+
         const fecha = formatearFecha(
-            reparacion.fecha_recepcion || reparacion.created_at
+            reparacion.fecha_recepcion ||
+            reparacion.created_at
         );
 
-        const html = `
-            <div class="pdf-documento">
-                <style>
-                    * { box-sizing: border-box; }
-                    .pdf-documento {
-                        width: 794px;
-                        min-height: 1123px;
-                        padding: 68px;
-                        background: #fff;
-                        color: #1f2937;
-                        font-family: Arial, Helvetica, sans-serif;
-                    }
-                    .pdf-cabecera {
-                        display:flex;
-                        justify-content:space-between;
-                        align-items:center;
-                        border-bottom:3px solid #111827;
-                        padding-bottom:18px;
-                        margin-bottom:25px;
-                    }
-                    .pdf-marca { display:flex; align-items:center; gap:15px; }
-                    .pdf-logo { width:85px; height:85px; object-fit:contain; }
-                    .pdf-documento h1 { margin:0; font-size:22px; }
-                    .pdf-empresa { margin-top:5px; font-size:13px; color:#6b7280; }
-                    .pdf-titulo { text-align:right; }
-                    .pdf-titulo h2 { margin:0; font-size:25px; }
-                    .pdf-numero { margin-top:6px; font-size:14px; font-weight:bold; }
-                    .pdf-bloques { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:25px; }
-                    .pdf-bloque { border:1px solid #d1d5db; border-radius:8px; padding:14px; }
-                    .pdf-bloque h3 { margin:0 0 10px; font-size:14px; text-transform:uppercase; }
-                    .pdf-dato { margin:5px 0; font-size:13px; }
-                    .pdf-tabla { width:100%; border-collapse:collapse; margin-top:15px; }
-                    .pdf-tabla th, .pdf-tabla td { border-bottom:1px solid #e5e7eb; padding:11px 8px; text-align:left; font-size:13px; }
-                    .pdf-tabla th:last-child, .pdf-tabla td:last-child { text-align:right; }
-                    .pdf-totales { width:320px; margin-left:auto; margin-top:20px; }
-                    .pdf-fila { display:flex; justify-content:space-between; padding:7px 0; font-size:14px; }
-                    .pdf-total { border-top:2px solid #111827; margin-top:5px; padding-top:12px; font-size:19px; font-weight:bold; }
-                    .pdf-pie { margin-top:45px; padding-top:15px; border-top:1px solid #d1d5db; text-align:center; font-size:11px; color:#6b7280; }
-                </style>
+        const datos = [
+            ["Número de reparación", reparacion.numero_reparacion],
+            ["Fecha", fecha],
+            ["Cliente", reparacion.cliente],
+            ["Teléfono", reparacion.telefono],
+            ["Email", reparacion.email],
+            ["Material", reparacion.tipo_material],
+            ["Marca", reparacion.marca],
+            ["Modelo", reparacion.modelo],
+            ["N.º de serie", reparacion.numero_serie]
+        ];
 
-                <header class="pdf-cabecera">
-                    <div class="pdf-marca">
-                        <img src="logo.jpg" class="pdf-logo" alt="Servicios Muñoz">
-                        <div>
-                            <h1>RECEPCIÓN DE MATERIAL</h1>
-                            <div class="pdf-empresa">SERVICIOS MUÑOZ</div>
-                        </div>
-                    </div>
-                    <div class="pdf-titulo">
-                        <h2>PRESUPUESTO</h2>
-                        <div class="pdf-numero">${escaparHTML(reparacion.numero_reparacion || "")}</div>
-                        <div class="pdf-empresa">${escaparHTML(fecha)}</div>
-                    </div>
-                </header>
+        const lineas = [];
+        lineas.push({ texto: "RECEPCIÓN DE MATERIAL", tamano: 18, negrita: true, salto: 9 });
+        lineas.push({ texto: "SERVICIOS MUÑOZ", tamano: 13, negrita: true, salto: 12 });
+        lineas.push({ texto: "PRESUPUESTO", tamano: 16, negrita: true, salto: 12 });
 
-                <section class="pdf-bloques">
-                    <div class="pdf-bloque">
-                        <h3>Cliente</h3>
-                        <div class="pdf-dato"><strong>Nombre:</strong> ${escaparHTML(reparacion.cliente || "")}</div>
-                        <div class="pdf-dato"><strong>Teléfono:</strong> ${escaparHTML(reparacion.telefono || "")}</div>
-                        <div class="pdf-dato"><strong>Email:</strong> ${escaparHTML(reparacion.email || "")}</div>
-                    </div>
-                    <div class="pdf-bloque">
-                        <h3>Material</h3>
-                        <div class="pdf-dato"><strong>Tipo:</strong> ${escaparHTML(reparacion.tipo_material || "")}</div>
-                        <div class="pdf-dato"><strong>Marca:</strong> ${escaparHTML(reparacion.marca || "")}</div>
-                        <div class="pdf-dato"><strong>Modelo:</strong> ${escaparHTML(reparacion.modelo || "")}</div>
-                        <div class="pdf-dato"><strong>N.º serie:</strong> ${escaparHTML(reparacion.numero_serie || "")}</div>
-                    </div>
-                </section>
-
-                <table class="pdf-tabla">
-                    <thead>
-                        <tr>
-                            <th>Concepto</th>
-                            <th>Importe</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td>Piezas</td><td>${Number(reparacion.coste_piezas || 0).toFixed(2)} €</td></tr>
-                        <tr><td>Mano de obra</td><td>${Number(reparacion.coste_mano_obra || 0).toFixed(2)} €</td></tr>
-                        <tr><td>Otros costes</td><td>${Number(reparacion.otros_costes || 0).toFixed(2)} €</td></tr>
-                    </tbody>
-                </table>
-
-                <div class="pdf-totales">
-                    <div class="pdf-fila"><span>Subtotal sin IVA</span><strong>${subtotal.toFixed(2)} €</strong></div>
-                    <div class="pdf-fila"><span>IVA (21 %)</span><strong>${iva.toFixed(2)} €</strong></div>
-                    <div class="pdf-fila pdf-total"><span>TOTAL</span><strong>${total.toFixed(2)} €</strong></div>
-                </div>
-
-                <div class="pdf-pie">
-                    Presupuesto correspondiente a la reparación ${escaparHTML(reparacion.numero_reparacion || "")}.
-                </div>
-            </div>
-        `;
-
-        contenedor = crearContenedorPDF(html);
-        await esperarImagenesPDF(contenedor);
-
-        const boton = document.getElementById("guardarPdfPresupuesto");
-        const textoOriginal = boton ? boton.textContent : "";
-        if (boton) {
-            boton.disabled = true;
-            boton.textContent = "GENERANDO PDF...";
+        for (const [etiqueta, valor] of datos) {
+            if (valor) {
+                lineas.push({
+                    texto: `${etiqueta}: ${valor}`,
+                    tamano: 10,
+                    negrita: false,
+                    salto: 5.5
+                });
+            }
         }
 
-        const pdfBlob = await window.html2pdf()
-            .set({
-                margin: 0,
-                filename: `Presupuesto_${reparacion.numero_reparacion || "reparacion"}.pdf`,
-                image: { type: "jpeg", quality: 0.98 },
-                html2canvas: {
-                    scale: 2,
-                    useCORS: true,
-                    allowTaint: false,
-                    backgroundColor: "#ffffff",
-                    logging: false
-                },
-                jsPDF: {
-                    unit: "mm",
-                    format: "a4",
-                    orientation: "portrait",
-                    compress: true
-                },
-                pagebreak: {
-                    mode: ["css", "legacy"]
+        lineas.push({ texto: "", tamano: 4, negrita: false, salto: 5 });
+        lineas.push({ texto: "CONCEPTOS", tamano: 12, negrita: true, salto: 8 });
+        lineas.push({ texto: `Piezas: ${reparacion.coste_piezas || 0} €`, tamano: 10, negrita: false, salto: 5.5 });
+        lineas.push({ texto: `Mano de obra: ${reparacion.coste_mano_obra || 0} €`, tamano: 10, negrita: false, salto: 5.5 });
+        lineas.push({ texto: `Otros costes: ${reparacion.otros_costes || 0} €`, tamano: 10, negrita: false, salto: 7 });
+        lineas.push({ texto: `Subtotal sin IVA: ${subtotal.toFixed(2)} €`, tamano: 11, negrita: true, salto: 6 });
+        lineas.push({ texto: `IVA (21 %): ${iva.toFixed(2)} €`, tamano: 11, negrita: true, salto: 6 });
+        lineas.push({ texto: `TOTAL CON IVA: ${total.toFixed(2)} €`, tamano: 14, negrita: true, salto: 10 });
+
+        if (reparacion.diagnostico) {
+            lineas.push({ texto: "DIAGNÓSTICO", tamano: 11, negrita: true, salto: 7 });
+            lineas.push({ texto: reparacion.diagnostico, tamano: 9, negrita: false, salto: 5 });
+        }
+
+        if (reparacion.piezas) {
+            lineas.push({ texto: "PIEZAS", tamano: 11, negrita: true, salto: 7 });
+            lineas.push({ texto: reparacion.piezas, tamano: 9, negrita: false, salto: 5 });
+        }
+
+        if (reparacion.mano_obra) {
+            lineas.push({ texto: "MANO DE OBRA", tamano: 11, negrita: true, salto: 7 });
+            lineas.push({ texto: reparacion.mano_obra, tamano: 9, negrita: false, salto: 5 });
+        }
+
+        const contenidoPartes = [];
+        contenidoPartes.push(bytesTextoPDF("q\n"));
+
+        let y = 785;
+        let logoAncho = 0;
+
+        if (logoBytes) {
+            const dimensiones = extraerTamanoJPEG(logoBytes);
+            const maxAncho = 35;
+            const maxAlto = 25;
+            const escala = Math.min(
+                maxAncho / dimensiones.ancho,
+                maxAlto / dimensiones.alto
+            );
+            const ancho = dimensiones.ancho * escala;
+            const alto = dimensiones.alto * escala;
+
+            logoAncho = ancho;
+
+            contenidoPartes.push(
+                bytesTextoPDF(
+                    `q ${ancho.toFixed(2)} 0 0 ${alto.toFixed(2)} 155 ${(y - alto + 4).toFixed(2)} cm /Im1 Do Q\n`
+                )
+            );
+        }
+
+        for (const linea of lineas) {
+            const texto = String(linea.texto || "");
+            const maxCaracteres =
+                linea.tamano >= 14 ? 55 : 92;
+            const trozos = [];
+
+            if (!texto) {
+                trozos.push("");
+            } else {
+                let restante = texto;
+
+                while (restante.length > maxCaracteres) {
+                    let corte = restante.lastIndexOf(" ", maxCaracteres);
+
+                    if (corte < 1) {
+                        corte = maxCaracteres;
+                    }
+
+                    trozos.push(restante.slice(0, corte));
+                    restante = restante.slice(corte).trim();
                 }
-            })
-            .from(contenedor)
-            .outputPdf("arraybuffer");
 
-        const pdfBlob = new Blob([pdfArrayBuffer], {
-        type: "application/pdf"
-      });
+                trozos.push(restante);
+            }
 
-      if (!pdfArrayBuffer || pdfArrayBuffer.byteLength < 100 || pdfBlob.size < 100) {
-            throw new Error("El PDF generado está vacío o no es válido.");
+            for (const trozo of trozos) {
+                y -= linea.salto;
+
+                if (y < 45) {
+                    break;
+                }
+
+                contenidoPartes.push(
+                    bytesTextoPDF(
+                        `BT /F${linea.negrita ? 2 : 1} ${linea.tamano} Tf 50 ${y.toFixed(2)} Td (${escaparPDFTexto(trozo)}) Tj ET\n`
+                    )
+                );
+            }
         }
 
-        const url = URL.createObjectURL(pdfBlob);
+        contenidoPartes.push(
+            bytesTextoPDF(
+                "BT /F1 8 Tf 50 28 Td (Servicios Muñoz - Presupuesto generado desde el sistema.) Tj ET\n"
+            )
+        );
+        contenidoPartes.push(bytesTextoPDF("Q\n"));
+
+        const contenido =
+            concatenarBytesPDF(contenidoPartes);
+
+        const objetoCatalogo = agregarObjeto(
+            bytesTextoPDF("<< /Type /Catalog /Pages 2 0 R >>")
+        );
+
+        const objetoPaginas = agregarObjeto(
+            bytesTextoPDF("<< /Type /Pages /Kids [3 0 R] /Count 1 >>")
+        );
+
+        const recursos =
+            logoBytes
+                ? "<< /Font << /F1 5 0 R /F2 6 0 R >> /XObject << /Im1 7 0 R >> >>"
+                : "<< /Font << /F1 5 0 R /F2 6 0 R >> >>";
+
+        const objetoPagina = agregarObjeto(
+            bytesTextoPDF(
+                `<< /Type /Page /Parent ${objetoPaginas} 0 R /MediaBox [0 0 595 842] /Resources ${recursos} /Contents 4 0 R >>`
+            )
+        );
+
+        const objetoContenido = agregarObjeto(
+            concatenarBytesPDF([
+                bytesTextoPDF(`<< /Length ${contenido.length} >>\nstream\n`),
+                contenido,
+                bytesTextoPDF("endstream")
+            ])
+        );
+
+        const objetoFuente = agregarObjeto(
+            bytesTextoPDF(
+                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"
+            )
+        );
+
+        const objetoFuenteNegrita = agregarObjeto(
+            bytesTextoPDF(
+                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"
+            )
+        );
+
+        if (logoBytes) {
+            const dimensiones = extraerTamanoJPEG(logoBytes);
+
+            agregarObjeto(
+                concatenarBytesPDF([
+                    bytesTextoPDF(
+                        `<< /Type /XObject /Subtype /Image /Width ${dimensiones.ancho} /Height ${dimensiones.alto} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logoBytes.length} >>\nstream\n`
+                    ),
+                    logoBytes,
+                    bytesTextoPDF("\nendstream")
+                ])
+            );
+        }
+
+        const partesPDF = [
+            bytesTextoPDF("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n")
+        ];
+
+        for (let i = 0; i < objetos.length; i++) {
+            offsets[i + 1] = partesPDF.reduce(
+                (totalActual, parte) =>
+                    totalActual + parte.length,
+                0
+            );
+
+            partesPDF.push(
+                bytesTextoPDF(`${i + 1} 0 obj\n`),
+                objetos[i],
+                bytesTextoPDF("\nendobj\n")
+            );
+        }
+
+        const posicionXref = partesPDF.reduce(
+            (totalActual, parte) =>
+                totalActual + parte.length,
+            0
+        );
+
+        partesPDF.push(
+            bytesTextoPDF(
+                `xref\n0 ${objetos.length + 1}\n0000000000 65535 f \n`
+            )
+        );
+
+        for (let i = 1; i <= objetos.length; i++) {
+            partesPDF.push(
+                bytesTextoPDF(
+                    `${String(offsets[i]).padStart(10, "0")} 00000 n \n`
+                )
+            );
+        }
+
+        partesPDF.push(
+            bytesTextoPDF(
+                `trailer\n<< /Size ${objetos.length + 1} /Root ${objetoCatalogo} 0 R >>\nstartxref\n${posicionXref}\n%%EOF`
+            )
+        );
+
+        const pdfBytes =
+            concatenarBytesPDF(partesPDF);
+
+        const blob = new Blob(
+            [pdfBytes],
+            { type: "application/pdf" }
+        );
+
+        const url = URL.createObjectURL(blob);
         const enlace = document.createElement("a");
         enlace.href = url;
-        enlace.download = `Presupuesto_${reparacion.numero_reparacion || "reparacion"}.pdf`;
-        enlace.style.display = "none";
+        enlace.download =
+            `Presupuesto_${reparacion.numero_reparacion || "reparacion"}.pdf`;
         document.body.appendChild(enlace);
         enlace.click();
         enlace.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
 
-        if (boton) {
-            boton.disabled = false;
-            boton.textContent = textoOriginal || "📄 GUARDAR PDF";
-        }
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+        }, 2000);
     } catch (error) {
-        console.error("Error al generar el PDF del presupuesto:", error);
-        alert("No se ha podido generar el PDF. " + (error.message || "Error desconocido."));
+        console.error(error);
 
-        const boton = document.getElementById("guardarPdfPresupuesto");
-        if (boton) {
-            boton.disabled = false;
-            boton.textContent = "📄 GUARDAR PDF";
-        }
-    } finally {
-        if (contenedor) {
-            contenedor.remove();
-        }
+        alert(
+            "No se ha podido generar el PDF. " +
+            (error.message || "Error desconocido.")
+        );
     }
 }
 
