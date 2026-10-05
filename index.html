@@ -108,7 +108,9 @@
 
 
 
-    </main>
+    
+
+</main>
 
 
 
@@ -273,6 +275,12 @@
 
 
                 </button>
+
+                <button class="dashboard-card" id="albaranesButton">
+                    <strong>ALBARANES</strong>
+                    <span>Crear y gestionar albaranes</span>
+                </button>
+
 
 
 
@@ -1471,6 +1479,148 @@
 
 
         </section>
+
+        <!-- ============================= -->
+        <!-- PANTALLA DE ALBARANES -->
+        <!-- ============================= -->
+
+        <section class="albaranes-screen" id="albaranesScreen" style="display: none;">
+            <div class="page-header">
+                <div>
+                    <h2>Albaranes</h2>
+                    <p>Crear y gestionar entregas de material</p>
+                </div>
+                <button id="volverDashboardAlbaranes">VOLVER</button>
+            </div>
+
+            <div class="form-section">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <div>
+                        <h3 style="margin-bottom:4px;">Albaranes registrados</h3>
+                        <p style="margin:0;">Aquí aparecerán los albaranes guardados.</p>
+                    </div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button type="button" class="primary-button" id="nuevoAlbaran">NUEVO ALBARÁN</button>
+                        <button type="button" class="secondary-button" id="actualizarAlbaranes">ACTUALIZAR</button>
+                    </div>
+                </div>
+                <div id="listaAlbaranes" style="margin-top:20px;"></div>
+                <p id="mensajeAlbaranes"></p>
+            </div>
+
+            <div class="form-section" id="detalleAlbaran" style="display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <h3>Detalle del albarán</h3>
+                    <button type="button" class="secondary-button" id="cerrarDetalleAlbaran">CERRAR DETALLE</button>
+                </div>
+                <div id="contenidoDetalleAlbaran" style="margin-top:18px;"></div>
+            </div>
+        </section>
+
+        <!-- ============================= -->
+        <!-- NUEVO ALBARÁN -->
+        <!-- ============================= -->
+
+        <section class="albaran-form-screen" id="albaranFormScreen" style="display: none;">
+            <div class="page-header">
+                <div>
+                    <h2>Nuevo albarán</h2>
+                    <p>Selecciona material de una reparación o añádelo manualmente</p>
+                </div>
+                <button id="volverAlbaranesDesdeForm">VOLVER</button>
+            </div>
+
+            <form id="albaranForm">
+                <div class="form-section">
+                    <h3>Datos del albarán</h3>
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label for="numeroAlbaran">Número de albarán</label>
+                            <input type="text" id="numeroAlbaran" readonly>
+                        </div>
+                        <div class="form-field">
+                            <label for="fechaAlbaran">Fecha y hora</label>
+                            <input type="datetime-local" id="fechaAlbaran" readonly>
+                        </div>
+                        <div class="form-field">
+                            <label for="clienteAlbaran">Cliente</label>
+                            <input type="text" id="clienteAlbaran" required placeholder="Nombre del cliente">
+                        </div>
+                        <div class="form-field">
+                            <label for="telefonoAlbaran">Teléfono</label>
+                            <input type="tel" id="telefonoAlbaran" placeholder="Teléfono del cliente">
+                        </div>
+                        <div class="form-field">
+                            <label for="emailAlbaran">Email</label>
+                            <input type="email" id="emailAlbaran" placeholder="Email del cliente">
+                        </div>
+                        <div class="form-field">
+                            <label for="ivaAlbaran">IVA (%)</label>
+                            <input type="number" id="ivaAlbaran" min="0" step="0.01" value="21">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Añadir desde una reparación</h3>
+                    <div class="form-grid">
+                        <div class="form-field full-width">
+                            <label for="selectorReparacionAlbaran">Reparación</label>
+                            <select id="selectorReparacionAlbaran">
+                                <option value="">Selecciona una reparación...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="materialSeleccionAlbaran" class="albaran-material-selector"></div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Añadir material manualmente</h3>
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label for="materialManualAlbaran">Descripción</label>
+                            <input type="text" id="materialManualAlbaran" placeholder="Ej. Broca, manguera, herramienta...">
+                        </div>
+                        <div class="form-field">
+                            <label for="cantidadManualAlbaran">Cantidad</label>
+                            <input type="number" id="cantidadManualAlbaran" min="1" step="1" value="1">
+                        </div>
+                        <div class="form-field">
+                            <label for="precioManualAlbaran">Precio unitario (€)</label>
+                            <input type="number" id="precioManualAlbaran" min="0" step="0.01" value="0">
+                        </div>
+                        <div class="form-field" style="align-self:end;">
+                            <button type="button" class="secondary-button" id="agregarMaterialManualAlbaran">AÑADIR MATERIAL</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Material que se entrega</h3>
+                    <div id="itemsAlbaran"></div>
+                    <p id="mensajeItemsAlbaran"></p>
+                    <div class="albaran-totales">
+                        <div><span>Subtotal</span><strong id="subtotalAlbaran">0.00 €</strong></div>
+                        <div><span>IVA</span><strong id="importeIvaAlbaran">0.00 €</strong></div>
+                        <div class="albaran-total-final"><span>TOTAL</span><strong id="totalAlbaran">0.00 €</strong></div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Observaciones</h3>
+                    <div class="form-field full-width">
+                        <textarea id="observacionesAlbaran" placeholder="Observaciones del albarán"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="secondary-button" id="cancelarAlbaran">CANCELAR</button>
+                    <button type="submit" class="primary-button" id="guardarAlbaran">GUARDAR ALBARÁN</button>
+                </div>
+                <p id="mensajeGuardarAlbaran"></p>
+            </form>
+        </section>
+
 
 
     </main>

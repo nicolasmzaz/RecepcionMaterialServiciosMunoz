@@ -34,6 +34,43 @@ const contenidoDetallePresupuesto =
 const cerrarDetallePresupuesto =
     document.getElementById("cerrarDetallePresupuesto");
 
+const albaranesScreen = document.getElementById("albaranesScreen");
+const albaranFormScreen = document.getElementById("albaranFormScreen");
+const albaranesButton = document.getElementById("albaranesButton");
+const volverDashboardAlbaranes = document.getElementById("volverDashboardAlbaranes");
+const actualizarAlbaranes = document.getElementById("actualizarAlbaranes");
+const listaAlbaranes = document.getElementById("listaAlbaranes");
+const mensajeAlbaranes = document.getElementById("mensajeAlbaranes");
+const detalleAlbaran = document.getElementById("detalleAlbaran");
+const contenidoDetalleAlbaran = document.getElementById("contenidoDetalleAlbaran");
+const cerrarDetalleAlbaran = document.getElementById("cerrarDetalleAlbaran");
+const nuevoAlbaran = document.getElementById("nuevoAlbaran");
+const volverAlbaranesDesdeForm = document.getElementById("volverAlbaranesDesdeForm");
+const cancelarAlbaran = document.getElementById("cancelarAlbaran");
+const albaranForm = document.getElementById("albaranForm");
+const selectorReparacionAlbaran = document.getElementById("selectorReparacionAlbaran");
+const materialSeleccionAlbaran = document.getElementById("materialSeleccionAlbaran");
+const itemsAlbaran = document.getElementById("itemsAlbaran");
+const mensajeItemsAlbaran = document.getElementById("mensajeItemsAlbaran");
+const numeroAlbaran = document.getElementById("numeroAlbaran");
+const fechaAlbaran = document.getElementById("fechaAlbaran");
+const clienteAlbaran = document.getElementById("clienteAlbaran");
+const telefonoAlbaran = document.getElementById("telefonoAlbaran");
+const emailAlbaran = document.getElementById("emailAlbaran");
+const ivaAlbaran = document.getElementById("ivaAlbaran");
+const materialManualAlbaran = document.getElementById("materialManualAlbaran");
+const cantidadManualAlbaran = document.getElementById("cantidadManualAlbaran");
+const precioManualAlbaran = document.getElementById("precioManualAlbaran");
+const agregarMaterialManualAlbaran = document.getElementById("agregarMaterialManualAlbaran");
+const subtotalAlbaran = document.getElementById("subtotalAlbaran");
+const importeIvaAlbaran = document.getElementById("importeIvaAlbaran");
+const totalAlbaran = document.getElementById("totalAlbaran");
+const observacionesAlbaran = document.getElementById("observacionesAlbaran");
+const mensajeGuardarAlbaran = document.getElementById("mensajeGuardarAlbaran");
+
+let reparacionesDisponiblesAlbaran = [];
+let itemsActualesAlbaran = [];
+
 let clientesScreen = null;
 let buscarScreen = null;
 let administracionScreen = null;
@@ -318,6 +355,8 @@ function mostrarPantalla(pantalla) {
     receptionScreen.style.display = "none";
     reparacionesScreen.style.display = "none";
     presupuestosScreen.style.display = "none";
+    albaranesScreen.style.display = "none";
+    albaranFormScreen.style.display = "none";
     if (clientesScreen) clientesScreen.style.display = "none";
     if (buscarScreen) buscarScreen.style.display = "none";
     if (administracionScreen) administracionScreen.style.display = "none";
@@ -2342,6 +2381,734 @@ async function cargarPresupuestos() {
         listaPresupuestos.appendChild(tarjeta);
     });
 }
+
+function formatearFechaHoraAlbaran(valor) {
+    if (!valor) return "";
+    const fecha = new Date(valor);
+    if (Number.isNaN(fecha.getTime())) return String(valor);
+    return fecha.toLocaleString("es-ES", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit"
+    });
+}
+
+function generarNumeroAlbaranLocal(ultimoNumero) {
+    const año = new Date().getFullYear();
+    const coincidencia = String(ultimoNumero || "").match(
+        new RegExp(`^ALB-${año}-(\\d{4})$`)
+    );
+    const siguiente = coincidencia ? Number(coincidencia[1]) + 1 : 1;
+    return `ALB-${año}-${String(siguiente).padStart(4, "0")}`;
+}
+
+async function obtenerSiguienteNumeroAlbaran() {
+    const año = new Date().getFullYear();
+    const { data, error } = await supabaseClient
+        .from("albaranes")
+        .select("numero_albaran")
+        .like("numero_albaran", `ALB-${año}-%`)
+        .order("numero_albaran", { ascending: false })
+        .limit(1);
+
+    if (error) throw error;
+    return generarNumeroAlbaranLocal(data?.[0]?.numero_albaran || "");
+}
+
+function limpiarFormularioAlbaran() {
+    albaranForm.reset();
+    itemsActualesAlbaran = [];
+    reparacionesDisponiblesAlbaran = [];
+    materialSeleccionAlbaran.innerHTML = "";
+    itemsAlbaran.innerHTML = "";
+    mensajeItemsAlbaran.textContent = "";
+    mensajeGuardarAlbaran.textContent = "";
+    numeroAlbaran.value = "";
+    fechaAlbaran.value = "";
+    ivaAlbaran.value = localStorage.getItem("configIva") || "21";
+    cantidadManualAlbaran.value = "1";
+    precioManualAlbaran.value = "0";
+    calcularTotalesAlbaran();
+}
+
+async function prepararNuevoAlbaran() {
+    limpiarFormularioAlbaran();
+    const fecha = obtenerFechaActual();
+    fechaAlbaran.value = fecha.valor;
+    numeroAlbaran.value = await obtenerSiguienteNumeroAlbaran();
+
+    const { data, error } = await supabaseClient
+        .from("recepciones")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    reparacionesDisponiblesAlbaran = data || [];
+    selectorReparacionAlbaran.innerHTML =
+        '<option value="">Selecciona una reparación...</option>';
+
+    reparacionesDisponiblesAlbaran.forEach(reparacion => {
+        const option = document.createElement("option");
+        option.value = reparacion.id;
+        option.textContent =
+            `${reparacion.numero_reparacion || "Sin número"} · ${reparacion.cliente || "Sin cliente"} · ${reparacion.tipo_material || "Sin material"}`;
+        selectorReparacionAlbaran.appendChild(option);
+    });
+
+    mostrarPantalla(albaranFormScreen);
+}
+
+function buscarReparacionAlbaranPorId(id) {
+    return reparacionesDisponiblesAlbaran.find(
+        reparacion => String(reparacion.id) === String(id)
+    );
+}
+
+function mostrarMaterialDeReparacionAlbaran(reparacion) {
+    materialSeleccionAlbaran.innerHTML = "";
+    if (!reparacion) return;
+
+    clienteAlbaran.value = reparacion.cliente || "";
+    telefonoAlbaran.value = reparacion.telefono || "";
+    emailAlbaran.value = reparacion.email || "";
+
+    const contenedor = document.createElement("div");
+    contenedor.className = "albaran-reparacion-box";
+
+    const opciones = [];
+    const materialPrincipal = [
+        reparacion.tipo_material,
+        reparacion.marca,
+        reparacion.modelo,
+        reparacion.numero_serie
+            ? `N.º serie: ${reparacion.numero_serie}`
+            : ""
+    ].filter(Boolean).join(" · ");
+
+    if (materialPrincipal) {
+        opciones.push({
+            tipo: "reparacion",
+            descripcion: materialPrincipal,
+            cantidad: 1,
+            precio: 0,
+            reparacion_id: reparacion.id,
+            numero_reparacion: reparacion.numero_reparacion || ""
+        });
+    }
+
+    if (String(reparacion.accesorios || "").trim()) {
+        opciones.push({
+            tipo: "accesorio",
+            descripcion: reparacion.accesorios.trim(),
+            cantidad: 1,
+            precio: 0,
+            reparacion_id: reparacion.id,
+            numero_reparacion: reparacion.numero_reparacion || ""
+        });
+    }
+
+    const titulo = document.createElement("h4");
+    titulo.textContent = "Selecciona exactamente lo que se entrega:";
+    contenedor.appendChild(titulo);
+
+    if (!opciones.length) {
+        contenedor.insertAdjacentHTML(
+            "beforeend",
+            "<p>Esta reparación no tiene material o accesorios registrados.</p>"
+        );
+        materialSeleccionAlbaran.appendChild(contenedor);
+        return;
+    }
+
+    opciones.forEach(opcion => {
+        const fila = document.createElement("label");
+        fila.className = "albaran-opcion-material";
+        fila.innerHTML = `
+            <input type="checkbox" class="check-material-albaran">
+            <span>${escaparHTML(opcion.descripcion)}</span>
+        `;
+        const checkbox = fila.querySelector("input");
+        checkbox.addEventListener("change", () => {
+            if (checkbox.checked) {
+                agregarItemAlbaran(opcion);
+            } else {
+                itemsActualesAlbaran = itemsActualesAlbaran.filter(
+                    item => !(
+                        item.reparacion_id === opcion.reparacion_id &&
+                        item.tipo === opcion.tipo &&
+                        item.descripcion === opcion.descripcion
+                    )
+                );
+                renderizarItemsAlbaran();
+            }
+        });
+        contenedor.appendChild(fila);
+    });
+
+    materialSeleccionAlbaran.appendChild(contenedor);
+}
+
+function agregarItemAlbaran(item) {
+    const existe = itemsActualesAlbaran.some(actual =>
+        actual.reparacion_id === item.reparacion_id &&
+        actual.tipo === item.tipo &&
+        actual.descripcion === item.descripcion
+    );
+    if (existe) return;
+
+    itemsActualesAlbaran.push({
+        ...item,
+        cantidad: Number(item.cantidad) || 1,
+        precio: Number(item.precio) || 0
+    });
+    renderizarItemsAlbaran();
+}
+
+function agregarMaterialManualAlbaranFuncion() {
+    const descripcion = materialManualAlbaran.value.trim();
+    const cantidad = Number(cantidadManualAlbaran.value) || 0;
+    const precio = Number(precioManualAlbaran.value) || 0;
+
+    if (!descripcion) {
+        mensajeItemsAlbaran.textContent = "Escribe una descripción del material.";
+        mensajeItemsAlbaran.style.color = "#b91c1c";
+        return;
+    }
+    if (cantidad <= 0) {
+        mensajeItemsAlbaran.textContent = "La cantidad debe ser mayor que 0.";
+        mensajeItemsAlbaran.style.color = "#b91c1c";
+        return;
+    }
+
+    itemsActualesAlbaran.push({
+        tipo: "manual",
+        descripcion,
+        cantidad,
+        precio,
+        reparacion_id: null,
+        numero_reparacion: ""
+    });
+
+    materialManualAlbaran.value = "";
+    cantidadManualAlbaran.value = "1";
+    precioManualAlbaran.value = "0";
+    mensajeItemsAlbaran.textContent = "";
+    renderizarItemsAlbaran();
+}
+
+function renderizarItemsAlbaran() {
+    itemsAlbaran.innerHTML = "";
+
+    if (!itemsActualesAlbaran.length) {
+        itemsAlbaran.innerHTML =
+            '<p class="albaran-sin-items">Todavía no has añadido material.</p>';
+        calcularTotalesAlbaran();
+        return;
+    }
+
+    itemsActualesAlbaran.forEach((item, indice) => {
+        const tarjeta = document.createElement("div");
+        tarjeta.className = "albaran-item-card";
+        const importe =
+            Number(item.cantidad || 0) * Number(item.precio || 0);
+
+        tarjeta.innerHTML = `
+            <div class="albaran-item-info">
+                <strong>${escaparHTML(item.descripcion)}</strong>
+                <small>${item.tipo === "manual"
+                    ? "Material añadido manualmente"
+                    : "Desde reparación " + escaparHTML(item.numero_reparacion || "")}</small>
+            </div>
+            <div class="albaran-item-numeros">
+                <label>Cantidad
+                    <input type="number" class="albaran-item-cantidad" min="1" step="1" value="${Number(item.cantidad || 1)}">
+                </label>
+                <label>Precio unitario
+                    <input type="number" class="albaran-item-precio" min="0" step="0.01" value="${Number(item.precio || 0).toFixed(2)}">
+                </label>
+                <strong>${importe.toFixed(2)} €</strong>
+                <button type="button" class="secondary-button albaran-item-eliminar">ELIMINAR</button>
+            </div>
+        `;
+
+        const cantidadInput = tarjeta.querySelector(".albaran-item-cantidad");
+        const precioInput = tarjeta.querySelector(".albaran-item-precio");
+
+        cantidadInput.addEventListener("change", () => {
+            itemsActualesAlbaran[indice].cantidad =
+                Math.max(1, Number(cantidadInput.value) || 1);
+            renderizarItemsAlbaran();
+        });
+        precioInput.addEventListener("change", () => {
+            itemsActualesAlbaran[indice].precio =
+                Math.max(0, Number(precioInput.value) || 0);
+            renderizarItemsAlbaran();
+        });
+        tarjeta.querySelector(".albaran-item-eliminar").addEventListener(
+            "click",
+            () => {
+                const eliminado = itemsActualesAlbaran[indice];
+                itemsActualesAlbaran.splice(indice, 1);
+
+                if (eliminado.tipo !== "manual") {
+                    materialSeleccionAlbaran
+                        .querySelectorAll(".check-material-albaran")
+                        .forEach(checkbox => {
+                            if (
+                                checkbox.nextElementSibling?.textContent ===
+                                eliminado.descripcion
+                            ) {
+                                checkbox.checked = false;
+                            }
+                        });
+                }
+                renderizarItemsAlbaran();
+            }
+        );
+
+        itemsAlbaran.appendChild(tarjeta);
+    });
+
+    calcularTotalesAlbaran();
+}
+
+function calcularTotalesAlbaran() {
+    const subtotal = itemsActualesAlbaran.reduce(
+        (total, item) =>
+            total +
+            (Number(item.cantidad) || 0) *
+            (Number(item.precio) || 0),
+        0
+    );
+    const ivaPorcentaje = Math.max(0, Number(ivaAlbaran.value) || 0);
+    const iva = subtotal * ivaPorcentaje / 100;
+    const total = subtotal + iva;
+
+    subtotalAlbaran.textContent = `${subtotal.toFixed(2)} €`;
+    importeIvaAlbaran.textContent = `${iva.toFixed(2)} €`;
+    totalAlbaran.textContent = `${total.toFixed(2)} €`;
+
+    return {
+        subtotal,
+        ivaPorcentaje,
+        iva,
+        total
+    };
+}
+
+async function cargarAlbaranes() {
+    listaAlbaranes.innerHTML = "";
+    detalleAlbaran.style.display = "none";
+    mensajeAlbaranes.textContent = "Cargando albaranes...";
+    mensajeAlbaranes.style.color = "";
+
+    const { data, error } = await supabaseClient
+        .from("albaranes")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error(error);
+        mensajeAlbaranes.textContent =
+            error.message || "No se han podido cargar los albaranes.";
+        mensajeAlbaranes.style.color = "#b91c1c";
+        return;
+    }
+
+    if (!data?.length) {
+        listaAlbaranes.innerHTML = "<p>No hay albaranes registrados.</p>";
+        mensajeAlbaranes.textContent = "";
+        return;
+    }
+
+    mensajeAlbaranes.textContent =
+        `${data.length} albarán${data.length === 1 ? "" : "es"} registrado${data.length === 1 ? "" : "s"}.`;
+
+    data.forEach(albaran => {
+        const tarjeta = document.createElement("div");
+        tarjeta.className = "reparacion-card";
+        tarjeta.innerHTML = `
+            <div>
+                <strong>${escaparHTML(albaran.numero_albaran || "Sin número")}</strong>
+                <p>${escaparHTML(albaran.cliente || "Sin cliente")}</p>
+                <p>${escaparHTML(formatearFechaHoraAlbaran(albaran.fecha_albaran || albaran.created_at))}</p>
+            </div>
+            <div>
+                <p><strong>${Number(albaran.total || 0).toFixed(2)} €</strong></p>
+                <button type="button" class="secondary-button btn-ver-albaran">VER DETALLE</button>
+            </div>
+        `;
+        tarjeta.querySelector(".btn-ver-albaran").addEventListener(
+            "click",
+            () => mostrarDetalleAlbaran(albaran)
+        );
+        listaAlbaranes.appendChild(tarjeta);
+    });
+}
+
+function mostrarDetalleAlbaran(albaran) {
+    detalleAlbaran.style.display = "block";
+    const items = Array.isArray(albaran.items) ? albaran.items : [];
+
+    contenidoDetalleAlbaran.innerHTML = `
+        <div class="albaran-detalle-cabecera">
+            <div>
+                <p><strong>Número:</strong> ${escaparHTML(albaran.numero_albaran || "")}</p>
+                <p><strong>Fecha:</strong> ${escaparHTML(formatearFechaHoraAlbaran(albaran.fecha_albaran || albaran.created_at))}</p>
+            </div>
+            <div>
+                <p><strong>Cliente:</strong> ${escaparHTML(albaran.cliente || "")}</p>
+                <p><strong>Teléfono:</strong> ${escaparHTML(albaran.telefono || "")}</p>
+                <p><strong>Email:</strong> ${escaparHTML(albaran.email || "")}</p>
+            </div>
+        </div>
+        <hr>
+        <h4>Material entregado</h4>
+        <div class="albaran-detalle-items">
+            ${items.length ? items.map(item => `
+                <div class="albaran-detalle-item">
+                    <span>${escaparHTML(item.descripcion || "")}</span>
+                    <span>${Number(item.cantidad || 0)} × ${Number(item.precio || 0).toFixed(2)} € = <strong>${(Number(item.cantidad || 0) * Number(item.precio || 0)).toFixed(2)} €</strong></span>
+                </div>
+            `).join("") : "<p>Sin material registrado.</p>"}
+        </div>
+        <div class="albaran-detalle-totales">
+            <p><strong>Subtotal:</strong> ${Number(albaran.subtotal || 0).toFixed(2)} €</p>
+            <p><strong>IVA (${Number(albaran.iva_porcentaje || 0).toFixed(2)} %):</strong> ${Number(albaran.iva_importe || 0).toFixed(2)} €</p>
+            <p class="albaran-detalle-total"><strong>TOTAL:</strong> ${Number(albaran.total || 0).toFixed(2)} €</p>
+        </div>
+        ${albaran.observaciones ? `<hr><p><strong>Observaciones:</strong><br>${escaparHTML(albaran.observaciones)}</p>` : ""}
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:25px;">
+            <button type="button" class="primary-button" id="imprimirAlbaranDetalle">🖨️ IMPRIMIR</button>
+            <button type="button" class="secondary-button" id="guardarPdfAlbaranDetalle">📄 GUARDAR PDF</button>
+        </div>
+    `;
+
+    document.getElementById("imprimirAlbaranDetalle")?.addEventListener(
+        "click",
+        () => imprimirAlbaran(albaran)
+    );
+
+    document.getElementById("guardarPdfAlbaranDetalle")?.addEventListener(
+        "click",
+        async () => await guardarAlbaranPDF(albaran)
+    );
+
+    detalleAlbaran.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function guardarAlbaranPDF(albaran) {
+    try {
+        const logoBytes = await obtenerLogoPDF();
+        const objetos = [];
+        const offsets = [0];
+        const agregarObjeto = contenido => {
+            objetos.push(contenido);
+            return objetos.length;
+        };
+
+        const items = Array.isArray(albaran.items) ? albaran.items : [];
+        const subtotal = Number(albaran.subtotal || 0);
+        const ivaPorcentaje = Number(albaran.iva_porcentaje || 0);
+        const iva = Number(albaran.iva_importe || (subtotal * ivaPorcentaje / 100));
+        const total = Number(albaran.total || (subtotal + iva));
+        const fecha = formatearFechaHoraAlbaran(albaran.fecha_albaran || albaran.created_at);
+
+        const lineas = [];
+        lineas.push({ texto: "RECEPCIÓN DE MATERIAL", tamano: 18, negrita: true, salto: 9 });
+        lineas.push({ texto: "SERVICIOS MUÑOZ", tamano: 13, negrita: true, salto: 12 });
+        lineas.push({ texto: "ALBARÁN", tamano: 16, negrita: true, salto: 12 });
+        lineas.push({ texto: `Número: ${albaran.numero_albaran || ""}`, tamano: 10, negrita: true, salto: 5.5 });
+        lineas.push({ texto: `Fecha: ${fecha}`, tamano: 10, negrita: false, salto: 7 });
+        lineas.push({ texto: `Cliente: ${albaran.cliente || ""}`, tamano: 10, negrita: false, salto: 5.5 });
+        if (albaran.telefono) lineas.push({ texto: `Teléfono: ${albaran.telefono}`, tamano: 10, negrita: false, salto: 5.5 });
+        if (albaran.email) lineas.push({ texto: `Email: ${albaran.email}`, tamano: 10, negrita: false, salto: 7 });
+        lineas.push({ texto: "MATERIAL ENTREGADO", tamano: 12, negrita: true, salto: 8 });
+
+        if (items.length) {
+            items.forEach((item, indice) => {
+                const cantidad = Number(item.cantidad || 0);
+                const precio = Number(item.precio || 0);
+                const importe = cantidad * precio;
+                lineas.push({
+                    texto: `${indice + 1}. ${item.descripcion || "Material"} | Cant.: ${cantidad} | ${precio.toFixed(2)} € | ${importe.toFixed(2)} €`,
+                    tamano: 9,
+                    negrita: false,
+                    salto: 6
+                });
+            });
+        } else {
+            lineas.push({ texto: "Sin material registrado.", tamano: 9, negrita: false, salto: 6 });
+        }
+
+        lineas.push({ texto: `Subtotal: ${subtotal.toFixed(2)} €`, tamano: 11, negrita: true, salto: 6 });
+        lineas.push({ texto: `IVA (${ivaPorcentaje.toFixed(2)} %): ${iva.toFixed(2)} €`, tamano: 11, negrita: true, salto: 6 });
+        lineas.push({ texto: `TOTAL: ${total.toFixed(2)} €`, tamano: 14, negrita: true, salto: 10 });
+
+        if (albaran.observaciones) {
+            lineas.push({ texto: "OBSERVACIONES", tamano: 11, negrita: true, salto: 7 });
+            lineas.push({ texto: albaran.observaciones, tamano: 9, negrita: false, salto: 5 });
+        }
+
+        const contenidoPartes = [bytesTextoPDF("q\n")];
+        let y = 785;
+
+        if (logoBytes) {
+            const dimensiones = extraerTamanoJPEG(logoBytes);
+            const maxAncho = 35;
+            const maxAlto = 25;
+            const escala = Math.min(maxAncho / dimensiones.ancho, maxAlto / dimensiones.alto);
+            const ancho = dimensiones.ancho * escala;
+            const alto = dimensiones.alto * escala;
+            contenidoPartes.push(bytesTextoPDF(`q ${ancho.toFixed(2)} 0 0 ${alto.toFixed(2)} 155 ${(y - alto + 4).toFixed(2)} cm /Im1 Do Q\n`));
+        }
+
+        for (const linea of lineas) {
+            const texto = String(linea.texto || "");
+            const maxCaracteres = linea.tamano >= 14 ? 55 : 88;
+            const trozos = [];
+            if (!texto) trozos.push("");
+            else {
+                let restante = texto;
+                while (restante.length > maxCaracteres) {
+                    let corte = restante.lastIndexOf(" ", maxCaracteres);
+                    if (corte < 1) corte = maxCaracteres;
+                    trozos.push(restante.slice(0, corte));
+                    restante = restante.slice(corte).trim();
+                }
+                trozos.push(restante);
+            }
+            for (const trozo of trozos) {
+                y -= linea.salto;
+                if (y < 45) break;
+                contenidoPartes.push(bytesTextoPDF(`BT /F${linea.negrita ? 2 : 1} ${linea.tamano} Tf 50 ${y.toFixed(2)} Td (${escaparPDFTexto(trozo)}) Tj ET\n`));
+            }
+        }
+
+        contenidoPartes.push(bytesTextoPDF("BT /F1 8 Tf 50 28 Td (Servicios Munoz - Albaran generado desde el sistema.) Tj ET\n"));
+        contenidoPartes.push(bytesTextoPDF("Q\n"));
+        const contenido = concatenarBytesPDF(contenidoPartes);
+
+        const objetoCatalogo = agregarObjeto(bytesTextoPDF("<< /Type /Catalog /Pages 2 0 R >>"));
+        const objetoPaginas = agregarObjeto(bytesTextoPDF("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"));
+        const recursos = logoBytes
+            ? "<< /Font << /F1 5 0 R /F2 6 0 R >> /XObject << /Im1 7 0 R >> >>"
+            : "<< /Font << /F1 5 0 R /F2 6 0 R >> >>";
+        const objetoPagina = agregarObjeto(bytesTextoPDF(`<< /Type /Page /Parent ${objetoPaginas} 0 R /MediaBox [0 0 595 842] /Resources ${recursos} /Contents 4 0 R >>`));
+        agregarObjeto(concatenarBytesPDF([bytesTextoPDF(`<< /Length ${contenido.length} >>\nstream\n`), contenido, bytesTextoPDF("endstream")]));
+        agregarObjeto(bytesTextoPDF("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"));
+        agregarObjeto(bytesTextoPDF("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"));
+
+        if (logoBytes) {
+            const dimensiones = extraerTamanoJPEG(logoBytes);
+            agregarObjeto(concatenarBytesPDF([
+                bytesTextoPDF(`<< /Type /XObject /Subtype /Image /Width ${dimensiones.ancho} /Height ${dimensiones.alto} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logoBytes.length} >>\nstream\n`),
+                logoBytes,
+                bytesTextoPDF("\nendstream")
+            ]));
+        }
+
+        const partesPDF = [bytesTextoPDF("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n")];
+        for (let i = 0; i < objetos.length; i++) {
+            offsets[i + 1] = partesPDF.reduce((totalActual, parte) => totalActual + parte.length, 0);
+            partesPDF.push(bytesTextoPDF(`${i + 1} 0 obj\n`), objetos[i], bytesTextoPDF("\nendobj\n"));
+        }
+        const posicionXref = partesPDF.reduce((totalActual, parte) => totalActual + parte.length, 0);
+        partesPDF.push(bytesTextoPDF(`xref\n0 ${objetos.length + 1}\n0000000000 65535 f \n`));
+        for (let i = 1; i <= objetos.length; i++) {
+            partesPDF.push(bytesTextoPDF(`${String(offsets[i]).padStart(10, "0")} 00000 n \n`));
+        }
+        partesPDF.push(bytesTextoPDF(`trailer\n<< /Size ${objetos.length + 1} /Root ${objetoCatalogo} 0 R >>\nstartxref\n${posicionXref}\n%%EOF`));
+
+        const pdfBytes = concatenarBytesPDF(partesPDF);
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement("a");
+        enlace.href = url;
+        enlace.download = `Albaran_${albaran.numero_albaran || "albaran"}.pdf`;
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (error) {
+        console.error(error);
+        alert("No se ha podido generar el PDF del albarán. " + (error.message || "Error desconocido."));
+    }
+}
+
+function imprimirAlbaran(albaran) {
+    const items = Array.isArray(albaran.items) ? albaran.items : [];
+    const ventana = window.open("", "_blank", "width=900,height=1000");
+
+    if (!ventana) {
+        alert("El navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes.");
+        return;
+    }
+
+    const filas = items.map(item => `
+        <tr>
+            <td>${escaparHTML(item.descripcion || "")}</td>
+            <td>${Number(item.cantidad || 0)}</td>
+            <td>${Number(item.precio || 0).toFixed(2)} €</td>
+            <td>${(Number(item.cantidad || 0) * Number(item.precio || 0)).toFixed(2)} €</td>
+        </tr>
+    `).join("");
+
+    ventana.document.write(`
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <title>Albarán ${escaparHTML(albaran.numero_albaran || "")}</title>
+            <style>
+                @page { size:A4; margin:18mm; }
+                * { box-sizing:border-box; }
+                body { margin:0; font-family:Arial,Helvetica,sans-serif; color:#1f2937; }
+                .documento { max-width:800px; margin:0 auto; }
+                .cabecera { display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #111827; padding-bottom:18px; margin-bottom:25px; }
+                .marca { display:flex; align-items:center; gap:15px; }
+                .logo { width:85px; height:85px; object-fit:contain; }
+                h1 { margin:0; font-size:22px; }
+                .empresa { margin-top:5px; font-size:13px; color:#6b7280; }
+                .titulo { text-align:right; }
+                .titulo h2 { margin:0; font-size:25px; }
+                .numero { margin-top:6px; font-size:14px; font-weight:bold; }
+                .bloques { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:25px; }
+                .bloque { border:1px solid #d1d5db; border-radius:8px; padding:14px; }
+                .bloque h3 { margin:0 0 10px; font-size:14px; text-transform:uppercase; }
+                .dato { margin:5px 0; font-size:13px; }
+                table { width:100%; border-collapse:collapse; margin-top:15px; }
+                th,td { border-bottom:1px solid #e5e7eb; padding:10px 8px; font-size:13px; text-align:left; }
+                th:nth-child(n+2),td:nth-child(n+2) { text-align:right; }
+                .totales { width:320px; margin-left:auto; margin-top:20px; }
+                .fila { display:flex; justify-content:space-between; padding:7px 0; }
+                .total { border-top:2px solid #111827; margin-top:5px; padding-top:12px; font-size:19px; font-weight:bold; }
+                .pie { margin-top:45px; padding-top:15px; border-top:1px solid #d1d5db; text-align:center; font-size:11px; color:#6b7280; }
+            </style>
+        </head>
+        <body>
+            <div class="documento">
+                <header class="cabecera">
+                    <div class="marca">
+                        <img src="logo.jpg" class="logo" alt="Servicios Muñoz">
+                        <div>
+                            <h1>RECEPCIÓN DE MATERIAL</h1>
+                            <div class="empresa">SERVICIOS MUÑOZ</div>
+                        </div>
+                    </div>
+                    <div class="titulo">
+                        <h2>ALBARÁN</h2>
+                        <div class="numero">${escaparHTML(albaran.numero_albaran || "")}</div>
+                        <div class="empresa">${escaparHTML(formatearFechaHoraAlbaran(albaran.fecha_albaran || albaran.created_at))}</div>
+                    </div>
+                </header>
+                <section class="bloques">
+                    <div class="bloque">
+                        <h3>Cliente</h3>
+                        <div class="dato"><strong>Nombre:</strong> ${escaparHTML(albaran.cliente || "")}</div>
+                        <div class="dato"><strong>Teléfono:</strong> ${escaparHTML(albaran.telefono || "")}</div>
+                        <div class="dato"><strong>Email:</strong> ${escaparHTML(albaran.email || "")}</div>
+                    </div>
+                    <div class="bloque">
+                        <h3>Entrega</h3>
+                        <div class="dato">Material entregado según este albarán.</div>
+                    </div>
+                </section>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Material / descripción</th>
+                            <th>Cantidad</th>
+                            <th>Precio unitario</th>
+                            <th>Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody>${filas}</tbody>
+                </table>
+                <div class="totales">
+                    <div class="fila"><span>Subtotal</span><strong>${Number(albaran.subtotal || 0).toFixed(2)} €</strong></div>
+                    <div class="fila"><span>IVA (${Number(albaran.iva_porcentaje || 0).toFixed(2)} %)</span><strong>${Number(albaran.iva_importe || 0).toFixed(2)} €</strong></div>
+                    <div class="fila total"><span>TOTAL</span><strong>${Number(albaran.total || 0).toFixed(2)} €</strong></div>
+                </div>
+                ${albaran.observaciones ? `<div style="margin-top:35px;"><strong>Observaciones</strong><p>${escaparHTML(albaran.observaciones)}</p></div>` : ""}
+                <div class="pie">Albarán ${escaparHTML(albaran.numero_albaran || "")} · SERVICIOS MUÑOZ</div>
+            </div>
+        </body>
+        </html>
+    `);
+
+    ventana.document.close();
+    setTimeout(() => {
+        ventana.focus();
+        ventana.print();
+    }, 700);
+}
+
+async function guardarAlbaran() {
+    mensajeGuardarAlbaran.textContent = "";
+    mensajeGuardarAlbaran.style.color = "";
+
+    const cliente = clienteAlbaran.value.trim();
+    if (!cliente) {
+        mensajeGuardarAlbaran.textContent = "El cliente es obligatorio.";
+        mensajeGuardarAlbaran.style.color = "#b91c1c";
+        return;
+    }
+    if (!itemsActualesAlbaran.length) {
+        mensajeGuardarAlbaran.textContent =
+            "Añade al menos un material al albarán.";
+        mensajeGuardarAlbaran.style.color = "#b91c1c";
+        return;
+    }
+
+    const totales = calcularTotalesAlbaran();
+    const boton = document.getElementById("guardarAlbaran");
+    boton.disabled = true;
+    boton.textContent = "GUARDANDO...";
+
+    try {
+        const registro = {
+            numero_albaran: numeroAlbaran.value.trim(),
+            fecha_albaran: fechaAlbaran.value
+                ? new Date(fechaAlbaran.value).toISOString()
+                : new Date().toISOString(),
+            cliente,
+            telefono: telefonoAlbaran.value.trim(),
+            email: emailAlbaran.value.trim(),
+            items: itemsActualesAlbaran,
+            subtotal: Number(totales.subtotal.toFixed(2)),
+            iva_porcentaje: Number(totales.ivaPorcentaje.toFixed(2)),
+            iva_importe: Number(totales.iva.toFixed(2)),
+            total: Number(totales.total.toFixed(2)),
+            observaciones: observacionesAlbaran.value.trim(),
+            usuario: usuarioActual || ""
+        };
+
+        const { error } = await supabaseClient
+            .from("albaranes")
+            .insert(registro);
+
+        if (error) throw error;
+
+        mensajeGuardarAlbaran.textContent =
+            `Albarán ${registro.numero_albaran} guardado correctamente.`;
+        mensajeGuardarAlbaran.style.color = "#15803d";
+
+        setTimeout(() => {
+            mostrarPantalla(albaranesScreen);
+            cargarAlbaranes();
+        }, 500);
+    } catch (error) {
+        console.error(error);
+        mensajeGuardarAlbaran.textContent =
+            error.message || "No se ha podido guardar el albarán.";
+        mensajeGuardarAlbaran.style.color = "#b91c1c";
+    } finally {
+        boton.disabled = false;
+        boton.textContent = "GUARDAR ALBARÁN";
+    }
+}
+
 async function obtenerLogoPDF() {
     try {
         const respuesta = await fetch(
@@ -3194,6 +3961,71 @@ presupuestosButton.addEventListener(
     async () => {
         mostrarPantalla(presupuestosScreen);
         await cargarPresupuestos();
+    }
+);
+
+albaranesButton.addEventListener(
+    "click",
+    async () => {
+        mostrarPantalla(albaranesScreen);
+        await cargarAlbaranes();
+    }
+);
+nuevoAlbaran.addEventListener(
+    "click",
+    async () => {
+        try {
+            await prepararNuevoAlbaran();
+        } catch (error) {
+            console.error(error);
+            alert("No se ha podido preparar el albarán. " + (error.message || ""));
+        }
+    }
+);
+volverDashboardAlbaranes.addEventListener(
+    "click",
+    () => {
+        detalleAlbaran.style.display = "none";
+        mostrarPantalla(dashboardScreen);
+    }
+);
+actualizarAlbaranes.addEventListener("click", cargarAlbaranes);
+cerrarDetalleAlbaran.addEventListener(
+    "click",
+    () => {
+        detalleAlbaran.style.display = "none";
+    }
+);
+volverAlbaranesDesdeForm.addEventListener(
+    "click",
+    () => mostrarPantalla(albaranesScreen)
+);
+cancelarAlbaran.addEventListener(
+    "click",
+    () => {
+        limpiarFormularioAlbaran();
+        mostrarPantalla(albaranesScreen);
+    }
+);
+selectorReparacionAlbaran.addEventListener(
+    "change",
+    () => {
+        const reparacion = buscarReparacionAlbaranPorId(
+            selectorReparacionAlbaran.value
+        );
+        mostrarMaterialDeReparacionAlbaran(reparacion);
+    }
+);
+agregarMaterialManualAlbaran.addEventListener(
+    "click",
+    agregarMaterialManualAlbaranFuncion
+);
+ivaAlbaran.addEventListener("input", calcularTotalesAlbaran);
+albaranForm.addEventListener(
+    "submit",
+    event => {
+        event.preventDefault();
+        guardarAlbaran();
     }
 );
 volverDashboardPresupuestos.addEventListener(

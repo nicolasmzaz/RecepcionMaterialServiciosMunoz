@@ -653,3 +653,194 @@ button {
     }
 
 }
+/* ============================= */
+/* ALBARANES */
+/* ============================= */
+
+.albaranes-screen,
+.albaran-form-screen {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 50px 25px;
+}
+
+.albaran-material-selector {
+    margin-top: 10px;
+}
+
+.albaran-reparacion-box {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.albaran-reparacion-box h4 {
+    margin-bottom: 15px;
+}
+
+.albaran-opcion-material {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    margin-top: 10px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.albaran-opcion-material input {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    margin-top: 2px;
+}
+
+.albaran-sin-items {
+    color: #666;
+    margin: 5px 0;
+}
+
+.albaran-item-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    padding: 18px;
+    margin-top: 12px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+}
+
+.albaran-item-info {
+    flex: 1;
+    min-width: 220px;
+}
+
+.albaran-item-info strong {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.albaran-item-info small {
+    color: #666;
+}
+
+.albaran-item-numeros {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.albaran-item-numeros label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.albaran-item-numeros input {
+    width: 120px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+}
+
+.albaran-item-numeros > strong {
+    min-width: 90px;
+    text-align: right;
+    padding-bottom: 10px;
+}
+
+.albaran-totales {
+    width: 330px;
+    max-width: 100%;
+    margin-left: auto;
+    margin-top: 25px;
+}
+
+.albaran-totales > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 7px 0;
+}
+
+.albaran-total-final {
+    border-top: 2px solid #111827;
+    margin-top: 5px;
+    padding-top: 12px !important;
+    font-size: 19px;
+    font-weight: bold;
+}
+
+.albaran-detalle-cabecera {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.albaran-detalle-items {
+    margin-top: 15px;
+}
+
+.albaran-detalle-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 12px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.albaran-detalle-totales {
+    width: 330px;
+    max-width: 100%;
+    margin-left: auto;
+    margin-top: 20px;
+}
+
+.albaran-detalle-total {
+    border-top: 2px solid #111827;
+    padding-top: 10px;
+    font-size: 18px;
+}
+
+@media (max-width: 700px) {
+    .albaranes-screen,
+    .albaran-form-screen {
+        padding: 30px 15px;
+    }
+
+    .albaran-item-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .albaran-item-numeros {
+        justify-content: flex-start;
+    }
+
+    .albaran-item-numeros > strong {
+        text-align: left;
+        padding-bottom: 0;
+    }
+
+    .albaran-item-numeros input {
+        width: 100%;
+    }
+
+    .albaran-detalle-cabecera {
+        grid-template-columns: 1fr;
+    }
+
+    .albaran-detalle-item {
+        flex-direction: column;
+        gap: 5px;
+    }
+}
