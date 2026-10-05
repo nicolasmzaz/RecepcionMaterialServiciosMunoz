@@ -2962,7 +2962,7 @@ async function guardarAlbaranPDF(albaran) {
             boton.textContent = "GENERANDO PDF...";
         }
 
-        const pdfBlob = await window.html2pdf()
+        const pdfArrayBuffer = await window.html2pdf()
             .set({
                 margin: 0,
                 filename: `Albaran_${albaran.numero_albaran || "albaran"}.pdf`,
@@ -2985,9 +2985,16 @@ async function guardarAlbaranPDF(albaran) {
                 }
             })
             .from(contenedor)
-            .outputPdf("blob");
+            .outputPdf("arraybuffer");
 
-        if (!pdfBlob || pdfBlob.size < 100) {
+        // Creamos el Blob directamente desde el ArrayBuffer.
+        // Esto evita que el navegador/intermediario convierta los saltos
+        // de línea binarios del PDF en caracteres "?" y corrompa el PDF.
+        const pdfBlob = new Blob([pdfArrayBuffer], {
+            type: "application/pdf"
+        });
+
+        if (!pdfArrayBuffer || pdfArrayBuffer.byteLength < 100 || pdfBlob.size < 100) {
             throw new Error("El PDF generado está vacío o no es válido.");
         }
 
@@ -2999,7 +3006,7 @@ async function guardarAlbaranPDF(albaran) {
         document.body.appendChild(enlace);
         enlace.click();
         enlace.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
 
         if (boton) {
             boton.disabled = false;
@@ -3462,7 +3469,7 @@ async function guardarPresupuestoPDF(reparacion) {
             boton.textContent = "GENERANDO PDF...";
         }
 
-        const pdfBlob = await window.html2pdf()
+        const pdfArrayBuffer = await window.html2pdf()
             .set({
                 margin: 0,
                 filename: `Presupuesto_${reparacion.numero_reparacion || "reparacion"}.pdf`,
@@ -3485,9 +3492,16 @@ async function guardarPresupuestoPDF(reparacion) {
                 }
             })
             .from(contenedor)
-            .outputPdf("blob");
+            .outputPdf("arraybuffer");
 
-        if (!pdfBlob || pdfBlob.size < 100) {
+        // Creamos el Blob directamente desde el ArrayBuffer.
+        // Esto evita que el navegador/intermediario convierta los saltos
+        // de línea binarios del PDF en caracteres "?" y corrompa el PDF.
+        const pdfBlob = new Blob([pdfArrayBuffer], {
+            type: "application/pdf"
+        });
+
+        if (!pdfArrayBuffer || pdfArrayBuffer.byteLength < 100 || pdfBlob.size < 100) {
             throw new Error("El PDF generado está vacío o no es válido.");
         }
 
@@ -3499,7 +3513,7 @@ async function guardarPresupuestoPDF(reparacion) {
         document.body.appendChild(enlace);
         enlace.click();
         enlace.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
 
         if (boton) {
             boton.disabled = false;
