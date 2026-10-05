@@ -2962,7 +2962,7 @@ async function guardarAlbaranPDF(albaran) {
             boton.textContent = "GENERANDO PDF...";
         }
 
-        await window.html2pdf()
+        const pdfBlob = await window.html2pdf()
             .set({
                 margin: 0,
                 filename: `Albaran_${albaran.numero_albaran || "albaran"}.pdf`,
@@ -2985,7 +2985,21 @@ async function guardarAlbaranPDF(albaran) {
                 }
             })
             .from(contenedor)
-            .save();
+            .outputPdf("blob");
+
+        if (!pdfBlob || pdfBlob.size < 100) {
+            throw new Error("El PDF generado está vacío o no es válido.");
+        }
+
+        const url = URL.createObjectURL(pdfBlob);
+        const enlace = document.createElement("a");
+        enlace.href = url;
+        enlace.download = `Albaran_${albaran.numero_albaran || "albaran"}.pdf`;
+        enlace.style.display = "none";
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
 
         if (boton) {
             boton.disabled = false;
@@ -3448,7 +3462,7 @@ async function guardarPresupuestoPDF(reparacion) {
             boton.textContent = "GENERANDO PDF...";
         }
 
-        await window.html2pdf()
+        const pdfBlob = await window.html2pdf()
             .set({
                 margin: 0,
                 filename: `Presupuesto_${reparacion.numero_reparacion || "reparacion"}.pdf`,
@@ -3471,7 +3485,21 @@ async function guardarPresupuestoPDF(reparacion) {
                 }
             })
             .from(contenedor)
-            .save();
+            .outputPdf("blob");
+
+        if (!pdfBlob || pdfBlob.size < 100) {
+            throw new Error("El PDF generado está vacío o no es válido.");
+        }
+
+        const url = URL.createObjectURL(pdfBlob);
+        const enlace = document.createElement("a");
+        enlace.href = url;
+        enlace.download = `Presupuesto_${reparacion.numero_reparacion || "reparacion"}.pdf`;
+        enlace.style.display = "none";
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
 
         if (boton) {
             boton.disabled = false;
