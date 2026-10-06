@@ -1,1489 +1,503 @@
 <!DOCTYPE html>
-
 <html lang="es">
-
-
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Recepción de Material Servicios Muñoz</title>
-
     <link rel="stylesheet" href="style.css">
-
 </head>
-
-
-
 <body>
-
-
-
     <main class="login-container" id="loginScreen">
-
-
-
         <section class="login-box">
-
-
-
             <img
-
                 src="logo.jpg"
-
                 alt="Servicios Muñoz"
-
                 class="logo"
-
             >
-
-
-
             <h1>RECEPCIÓN DE MATERIAL</h1>
-
             <h2>SERVICIOS MUÑOZ</h2>
-
-
-
             <div class="login-form">
-
-
-
                 <label for="usuario">Usuario</label>
-
-
-
                 <input
-
                     type="text"
-
                     id="usuario"
-
                     placeholder="Introduce tu usuario"
-
                     autocomplete="username"
-
                 >
-
-
-
                 <label for="password">Contraseña</label>
-
-
-
                 <input
-
                     type="password"
-
                     id="password"
-
                     placeholder="Introduce tu contraseña"
-
                     autocomplete="current-password"
-
                 >
-
-
-
                 <button id="loginButton">
-
                     INICIAR SESIÓN
-
                 </button>
-
-
-
                 <p id="mensaje"></p>
-
-
-
             </div>
-
-
-
         </section>
-
-
-
-    
-
 </main>
-
-
-
-
-
     <main class="app-container" id="appScreen" style="display: none;">
-
-
-
         <header class="app-header">
-
-
-
             <div class="app-brand">
-
-
-
                 <img src="logo.jpg" alt="Servicios Muñoz">
-
-
-
                 <div>
-
                     <h1>RECEPCIÓN DE MATERIAL</h1>
-
                     <p>SERVICIOS MUÑOZ</p>
-
                 </div>
-
-
-
             </div>
-
-
-
             <div class="user-area">
-
-
-
                 <span id="usuarioActivo"></span>
-
-
-
                 <button id="logoutButton">
-
                     CERRAR SESIÓN
-
                 </button>
-
-
-
             </div>
-
-
-
         </header>
-
-
-
-
-
         <section class="dashboard" id="dashboardScreen">
-
-
-
             <div class="dashboard-header">
-
-
-
                 <h2>Panel principal</h2>
-
-
-
                 <p>
-
                     Gestión de recepción y reparación de material
-
                 </p>
-
-
-
             </div>
-
-
-
-
-
             <div class="dashboard-grid">
-
-
-
                 <button
-
                     class="dashboard-card"
-
                     id="nuevaRecepcion"
-
                 >
-
-
-
                     <strong>NUEVA RECEPCIÓN</strong>
-
-
-
                     <span>
-
                         Registrar material recibido
-
                     </span>
-
-
-
                 </button>
-
-
-
-
-
                 <button
-
                     class="dashboard-card"
-
                     id="reparacionesButton"
-
                 >
-
-
-
                     <strong>REPARACIONES</strong>
-
-
-
                     <span>
-
                         Consultar y gestionar reparaciones
-
                     </span>
-
-
-
                 </button>
-
-
-
-
-
                 <button class="dashboard-card" id="presupuestosButton">
-
-
-
                     <strong>PRESUPUESTOS</strong>
-
-
-
                     <span>
-
                         Consultar y gestionar presupuestos
-
                     </span>
-
-
-
                 </button>
-
                 <button class="dashboard-card" id="albaranesButton">
                     <strong>ALBARANES</strong>
                     <span>Crear y gestionar albaranes</span>
                 </button>
-
-
-
-
-
-
                 <button class="dashboard-card">
-
-
-
                     <strong>CLIENTES</strong>
-
-
-
                     <span>
-
                         Consultar clientes
-
                     </span>
-
-
-
                 </button>
-
-
-
-
-
                 <button class="dashboard-card">
-
-
-
                     <strong>BUSCAR</strong>
-
-
-
                     <span>
-
                         Buscar reparaciones y materiales
-
                     </span>
-
-
-
                 </button>
-
-
-
-
-
                 <button
-
                     class="dashboard-card"
-
                     id="administracion"
-
                 >
-
-
-
                     <strong>ADMINISTRACIÓN</strong>
-
-
-
                     <span>
-
                         Usuarios y configuración
-
                     </span>
-
-
-
                 </button>
-
-
-
             </div>
-
-
-
         </section>
-
-
-
-
-
         <section
-
             class="reception-screen"
-
             id="receptionScreen"
-
             style="display: none;"
-
         >
-
-
-
             <div class="page-header">
-
-
-
                 <div>
-
-
-
                     <h2>Nueva recepción</h2>
-
-
-
                     <p>
-
                         Registrar material recibido para reparación
-
                     </p>
-
-
-
                 </div>
-
-
-
                 <button id="volverDashboard">
-
                     VOLVER
-
                 </button>
-
-
-
             </div>
-
-
-
-
-
             <form id="receptionForm">
-
-
-
-
-
                 <div class="form-section">
-
-
-
                     <h3>
-
                         Datos de la recepción
-
                     </h3>
-
-
-
-
-
                     <div class="form-grid">
-
-
-
-
-
                         <div class="form-field">
-
-
-
                             <label for="numeroReparacion">
-
                                 Número de reparación
-
                             </label>
-
-
-
                             <input
-
                                 type="text"
-
                                 id="numeroReparacion"
-
                                 name="numeroReparacion"
-
                                 readonly
-
                             >
-
-
-
                         </div>
-
-
-
-
-
                         <div class="form-field">
-
-
-
                             <label for="fechaRecepcion">
-
                                 Fecha y hora
-
                             </label>
-
-
-
                             <input
-
                                 type="datetime-local"
-
                                 id="fechaRecepcion"
-
                                 name="fechaRecepcion"
-
                                 readonly
-
                             >
-
-
-
                         </div>
-
-
-
-
-
                         <div class="form-field">
-
-
-
                             <label for="cliente">
-
                                 Cliente
-
                             </label>
-
-
-
                             <input
-
                                 type="text"
-
                                 id="cliente"
-
                                 name="cliente"
-
                                 placeholder="Nombre del cliente"
-
                                 required
-
                             >
-
-
-
                         </div>
-
-
-
-
-
                         <div class="form-field">
-
-
-
                             <label for="telefono">
-
                                 Teléfono
-
                             </label>
-
-
-
                             <input
-
                                 type="tel"
-
                                 id="telefono"
-
                                 name="telefono"
-
                                 placeholder="Teléfono del cliente"
-
                             >
-
-
-
                         </div>
-
-
-
-
-
-                    
                         <div class="form-field">
-
                             <label for="email">
-
                                 Email
-
                             </label>
-
                             <input
-
                                 type="email"
-
                                 id="email"
-
                                 name="email"
-
                                 placeholder="Email del cliente"
-
                             >
-
                         </div>
 </div>
-
-
-
                 </div>
-
-
-
-
-
                 <div class="form-section">
-
-
-
                     <h3>
-
                         Material recibido
-
                     </h3>
-
-
-
-
-
                     <div class="form-grid">
-
-
-
-
-
                         <div class="form-field">
-
-
-
                             <label for="marca">
-
                                 Marca
-
                             </label>
-
-
-
                             <input
-
                                 type="text"
-
                                 id="marca"
-
                                 name="marca"
-
                                 placeholder="Marca"
-
                                 required
-
                             >
-
-
-
                         </div>
-
-
-
-
-
                         <div class="form-field">
-
-
-
                             <label for="modelo">
-
                                 Modelo
-
                             </label>
-
-
-
                             <input
-
                                 type="text"
-
                                 id="modelo"
-
                                 name="modelo"
-
                                 placeholder="Modelo"
-
                                 required
-
                             >
-
-
-
                         </div>
-
-
-
-
-
                         <div class="form-field">
-
-
-
                             <label for="numeroSerie">
-
                                 Número de serie
-
                             </label>
-
-
-
                             <input
-
                                 type="text"
-
                                 id="numeroSerie"
-
                                 name="numeroSerie"
-
                                 placeholder="Número de serie"
-
                             >
-
-
-
                         </div>
-
-
-
-
-
                         <div class="form-field">
-
-
-
                             <label for="tipoMaterial">
-
                                 Tipo de material
-
                             </label>
-
-
-
                             <input
-
                                 type="text"
-
                                 id="tipoMaterial"
-
                                 name="tipoMaterial"
-
                                 placeholder="Ej. Taladro, generador, motosierra..."
-
                                 required
-
                             >
                                                             required
-
                             >
-
-
-
                         </div>
-
-
-
-
-
                     </div>
-
-
-
-
-
                     <div class="form-field full-width">
-
-
-
                         <label for="accesorios">
-
                             Accesorios entregados
-
                         </label>
-
-
-
                         <textarea
-
                             id="accesorios"
-
                             name="accesorios"
-
                             placeholder="Describe los accesorios entregados"
-
                         ></textarea>
-
-
-
                     </div>
-
-
-
-
-
                     <div class="form-field full-width">
-
-
-
                         <label for="estadoRecepcion">
-
                             Estado del material al recibirlo
-
                         </label>
-
-
-
                         <textarea
-
                             id="estadoRecepcion"
-
                             name="estadoRecepcion"
-
                             placeholder="Describe el estado exterior, golpes, daños, piezas faltantes..."
-
                         ></textarea>
-
-
-
                     </div>
-
-
-
-
-
                     <div class="form-field full-width">
-
-
-
                         <label for="averia">
-
                             Avería indicada por el cliente
-
                         </label>
-
-
-
                         <textarea
-
                             id="averia"
-
                             name="descripcionAveria"
-
                             placeholder="Describe el problema indicado por el cliente"
-
                             required
-
                         ></textarea>
-
-
-
                     </div>
-
-
-
-
-
                     <div class="form-field full-width">
-
-
-
                         <label for="observaciones">
-
                             Observaciones
-
                         </label>
-
-
-
                         <textarea
-
                             id="observaciones"
-
                             name="observacionesCliente"
-
                             placeholder="Observaciones adicionales"
-
                         ></textarea>
-
-
-
                     </div>
-
-
-
                 </div>
-
-
-
-
-
                 <div class="form-section">
-
-
-
                     <h3>
-
                         Fotografías
-
                     </h3>
-
-
-
-
-
                     <div class="form-field full-width">
-
-
-
                         <label for="fotos">
-
                             Añadir fotografías del material
-
                         </label>
-
-
-
                         <input
-
                             type="file"
-
                             id="fotos"
-
                             accept="image/*"
-
                             multiple
-
                         >
-
-
-
                     </div>
-
-
-
                 </div>
-
-
-
-
-
                 <div class="form-actions">
-
-
-
                     <button
-
                         type="button"
-
                         id="cancelarRecepcion"
-
                         class="secondary-button"
-
                     >
-
                         CANCELAR
-
                     </button>
-
-
-
-
-
                     <button
-
                         type="submit"
-
                         id="guardarRecepcion"
-
                         class="primary-button"
-
                     >
-
                         GUARDAR RECEPCIÓN
-
                     </button>
-
-
-
                 </div>
-
-
-
-
-
                 <p id="mensajeRecepcion"></p>
-
-
-
             </form>
-
-
-
         </section>
-
-
-
-
-
         <!-- ============================= -->
-
         <!-- PANTALLA DE REPARACIONES -->
-
         <!-- ============================= -->
-
-
-
         <section
-
             class="reparaciones-screen"
-
             id="reparacionesScreen"
-
             style="display: none;"
-
         >
-
-
-
             <div class="page-header">
-
-
-
                 <div>
-
-
-
                     <h2>
-
                         Reparaciones
-
                     </h2>
-
-
-
                     <p>
-
                         Consultar y gestionar las reparaciones recibidas
-
                     </p>
-
-
-
                 </div>
-
-
-
-
-
                 <button id="volverDashboardReparaciones">
-
                     VOLVER
-
                 </button>
-
-
-
             </div>
-
-
-
-
-
             <div class="form-section">
-
-
-
                 <div
-
                     style="
-
                         display:flex;
-
                         justify-content:space-between;
-
                         align-items:center;
-
                         gap:12px;
-
                         flex-wrap:wrap;
-
                     "
-
                 >
-
-
-
                     <div>
-
-
-
                         <h3 style="margin-bottom:4px;">
-
                             Recepciones registradas
-
                         </h3>
-
-
-
                         <p style="margin:0;">
-
                             Aquí aparecerán las reparaciones
-
                             guardadas desde Nueva recepción.
-
                         </p>
-
-
-
                     </div>
-
-
-
-
-
                     <button
-
                         type="button"
-
                         id="actualizarReparaciones"
-
                         class="secondary-button"
-
                     >
-
                         ACTUALIZAR
-
                     </button>
-
-
-
                 </div>
-
-
-
-
-
                 <div
-
                     id="listaReparaciones"
-
                     style="margin-top:20px;"
-
                 ></div>
-
-
-
-
-
                 <p id="mensajeReparaciones"></p>
-
-
             </div>
-
-
-
-
-
             <div
-
                 class="form-section"
-
                 id="detalleReparacion"
-
                 style="display:none;"
-
             >
-
-
-
                 <div
-
                     style="
-
                         display:flex;
-
                         justify-content:space-between;
-
                         align-items:center;
-
                         gap:12px;
-
                         flex-wrap:wrap;
-
                     "
-
                 >
-
-
-
                     <h3>
-
                         Detalle de la reparación
-
                     </h3>
-
-
-
-
-
                     <button
-
                         type="button"
-
                         id="cerrarDetalleReparacion"
-
                         class="secondary-button"
-
                     >
-
                         CERRAR DETALLE
-
                     </button>
-
-
-
                 </div>
-
-
-
-
-
                 <div
-
                     id="contenidoDetalleReparacion"
-
                     style="margin-top:18px;"
-
                 ></div>
-
-
-
             </div>
-
-
-
         </section>
-
-
-
-    
-
-
-
         <!-- ============================= -->
-
         <!-- PANTALLA DE PRESUPUESTOS -->
-
         <!-- ============================= -->
-
-
-
         <section
-
             class="presupuestos-screen"
-
             id="presupuestosScreen"
-
             style="display: none;"
-
         >
-
-
-
             <div class="page-header">
-
-
-
                 <div>
-
-
-
                     <h2>
-
                         Presupuestos
-
                     </h2>
-
-
-
                     <p>
-
                         Consultar y gestionar los presupuestos
-
                     </p>
-
-
-
                 </div>
-
-
-
                 <button id="volverDashboardPresupuestos">
-
                     VOLVER
-
                 </button>
-
-
-
             </div>
-
-
-
-
-
             <div class="form-section">
-
-
-
                 <div
-
                     style="
-
                         display:flex;
-
                         justify-content:space-between;
-
                         align-items:center;
-
                         gap:12px;
-
                         flex-wrap:wrap;
-
                     "
-
                 >
-
-
-
                     <div>
-
-
-
                         <h3 style="margin-bottom:4px;">
-
                             Presupuestos registrados
-
                         </h3>
-
-
-
                         <p style="margin:0;">
-
                             Aquí aparecerán los presupuestos
-
                             asociados a las reparaciones.
-
                         </p>
-
-
-
                     </div>
-
-
-
                     <button
-
                         type="button"
-
                         id="actualizarPresupuestos"
-
                         class="secondary-button"
-
                     >
-
                         ACTUALIZAR
-
                     </button>
-
-
-
                 </div>
-
-
-
-
-
                 <div
-
                     id="listaPresupuestos"
-
                     style="margin-top:20px;"
-
                 ></div>
-
-
-
-
-
                 <p id="mensajePresupuestos"></p>
-
-
-
             </div>
-
-
-
-
-
             <div
-
                 class="form-section"
-
                 id="detallePresupuesto"
-
                 style="display:none;"
-
             >
-
-
-
                 <div
-
                     style="
-
                         display:flex;
-
                         justify-content:space-between;
-
                         align-items:center;
-
                         gap:12px;
-
                         flex-wrap:wrap;
-
                     "
-
                 >
-
-
-
                     <h3>
-
                         Detalle del presupuesto
-
                     </h3>
-
-
-
                     <button
-
                         type="button"
-
                         id="cerrarDetallePresupuesto"
-
                         class="secondary-button"
-
                     >
-
                         CERRAR DETALLE
-
                     </button>
-
-
-
                 </div>
-
-
-
-
-
                 <div
-
                     id="contenidoDetallePresupuesto"
-
                     style="margin-top:18px;"
-
                 ></div>
-
-
-
             </div>
-
-
-
         </section>
-
         <!-- ============================= -->
         <!-- PANTALLA DE ALBARANES -->
         <!-- ============================= -->
-
         <section class="albaranes-screen" id="albaranesScreen" style="display: none;">
             <div class="page-header">
                 <div>
@@ -1492,7 +506,6 @@
                 </div>
                 <button id="volverDashboardAlbaranes">VOLVER</button>
             </div>
-
             <div class="form-section">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
                     <div>
@@ -1507,7 +520,6 @@
                 <div id="listaAlbaranes" style="margin-top:20px;"></div>
                 <p id="mensajeAlbaranes"></p>
             </div>
-
             <div class="form-section" id="detalleAlbaran" style="display:none;">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
                     <h3>Detalle del albarán</h3>
@@ -1516,11 +528,9 @@
                 <div id="contenidoDetalleAlbaran" style="margin-top:18px;"></div>
             </div>
         </section>
-
         <!-- ============================= -->
         <!-- NUEVO ALBARÁN -->
         <!-- ============================= -->
-
         <section class="albaran-form-screen" id="albaranFormScreen" style="display: none;">
             <div class="page-header">
                 <div>
@@ -1529,7 +539,6 @@
                 </div>
                 <button id="volverAlbaranesDesdeForm">VOLVER</button>
             </div>
-
             <form id="albaranForm">
                 <div class="form-section">
                     <h3>Datos del albarán</h3>
@@ -1560,7 +569,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="form-section">
                     <h3>Añadir desde una reparación</h3>
                     <div class="form-grid">
@@ -1573,7 +581,6 @@
                     </div>
                     <div id="materialSeleccionAlbaran" class="albaran-material-selector"></div>
                 </div>
-
                 <div class="form-section">
                     <h3>Añadir material manualmente</h3>
                     <div class="form-grid">
@@ -1594,7 +601,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="form-section">
                     <h3>Material que se entrega</h3>
                     <div id="itemsAlbaran"></div>
@@ -1605,14 +611,12 @@
                         <div class="albaran-total-final"><span>TOTAL</span><strong id="totalAlbaran">0.00 €</strong></div>
                     </div>
                 </div>
-
                 <div class="form-section">
                     <h3>Observaciones</h3>
                     <div class="form-field full-width">
                         <textarea id="observacionesAlbaran" placeholder="Observaciones del albarán"></textarea>
                     </div>
                 </div>
-
                 <div class="form-actions">
                     <button type="button" class="secondary-button" id="cancelarAlbaran">CANCELAR</button>
                     <button type="submit" class="primary-button" id="guardarAlbaran">GUARDAR ALBARÁN</button>
@@ -1620,25 +624,8 @@
                 <p id="mensajeGuardarAlbaran"></p>
             </form>
         </section>
-
-
-
     </main>
-
-
-
-
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-
-
     <script src="app.js"></script>
-
-
-
 </body>
-
-
-
 </html>
