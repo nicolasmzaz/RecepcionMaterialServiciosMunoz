@@ -276,9 +276,95 @@ async function crearUsuarioAdmin() {
 }
 
 function crearTarjetaResultado(reparacion) {
-    const tarjeta = document.createElement("div"); tarjeta.className = "reparacion-card";
-    tarjeta.innerHTML = `<div><strong>${escaparHTML(reparacion.numero_reparacion || "Sin número")}</strong><p>${escaparHTML(reparacion.cliente || "Sin cliente")}</p><p>${escaparHTML(reparacion.tipo_material || "Sin material")} ${reparacion.marca ? "· " + escaparHTML(reparacion.marca) : ""}</p></div><div style="text-align:right;"><p>${escaparHTML(reparacion.estado_reparacion || "Pendiente")}</p><button type="button" class="secondary-button">VER DETALLE</button></div>`;
-    tarjeta.querySelector("button").addEventListener("click", () => { mostrarPantalla(reparacionesScreen); mostrarDetalleReparacion(reparacion); }); return tarjeta;
+    const tarjeta = document.createElement("div");
+    tarjeta.className = "reparacion-card";
+
+    tarjeta.innerHTML = `
+        <div class="reparacion-card-info">
+            <strong>
+                ${escaparHTML(reparacion.numero_reparacion || "Sin número")}
+            </strong>
+            <p>
+                ${escaparHTML(reparacion.cliente || "Sin cliente")}
+            </p>
+            <p>
+                ${escaparHTML(reparacion.tipo_material || "Sin material")}
+                ${reparacion.marca ? " · " + escaparHTML(reparacion.marca) : ""}
+            </p>
+        </div>
+
+        <div class="reparacion-card-actions">
+            ${renderizarEstado(reparacion.estado_reparacion)}
+            <button
+                type="button"
+                class="secondary-button btn-ver-reparacion"
+            >
+                VER DETALLE
+            </button>
+        </div>
+
+        <div
+            class="detalle-reparacion-inline"
+            style="
+                display:none;
+                width:100%;
+                box-sizing:border-box;
+            "
+        ></div>
+    `;
+
+    const boton = tarjeta.querySelector(".btn-ver-reparacion");
+    const detalle = tarjeta.querySelector(".detalle-reparacion-inline");
+
+    boton.addEventListener("click", async () => {
+        const abierto = detalle.style.display === "block";
+
+        if (abierto) {
+            detalle.style.display = "none";
+            boton.textContent = "VER DETALLE";
+            return;
+        }
+
+        // En Clientes/Buscar mostramos un único detalle abierto a la vez
+        // dentro de la lista actual.
+        const padre = tarjeta.parentElement;
+
+        padre
+            ?.querySelectorAll(".detalle-reparacion-inline")
+            .forEach(otro => {
+                if (otro !== detalle) {
+                    otro.style.display = "none";
+                }
+            });
+
+        padre
+            ?.querySelectorAll(".btn-ver-reparacion")
+            .forEach(otroBoton => {
+                if (otroBoton !== boton) {
+                    otroBoton.textContent = "VER DETALLE";
+                }
+            });
+
+        detalle.style.display = "block";
+        boton.textContent = "CERRAR DETALLE";
+
+        try {
+            await mostrarDetalleReparacionInline(
+                reparacion,
+                detalle
+            );
+        } catch (error) {
+            console.error(error);
+            detalle.innerHTML = `
+                <p style="color:#dc2626;font-weight:bold;">
+                    No se ha podido cargar el detalle de la reparación.
+                </p>
+                <p>${escaparHTML(error.message || "Error desconocido.")}</p>
+            `;
+        }
+    });
+
+    return tarjeta;
 }
 async function obtenerTodasLasReparaciones() {
     const { data, error } = await supabaseClient.from("recepciones").select("*").order("created_at", { ascending: false });
@@ -789,6 +875,166 @@ function formatearFecha(valor) {
         }
     );
 }
+
+function normalizarRutasFotos(rutas) {
+    if (!rutas) return [];
+
+    if (Array.isArray(rutas)) {
+        return rutas.filter(Boolean);
+    }
+
+    if (typeof rutas === "string") {
+        try {
+            const parsed = JSON.parse(rutas);
+            return Array.isArray(parsed)
+                ? parsed.filter(Boolean)
+                : [];
+        } catch {
+            return [];
+        }
+    }
+
+    return [];
+}
+
+function pintarMiniaturasEdicion(
+    contenedor,
+    urls,
+    mensajeVacio
+) {
+    contenedor.innerHTML = "";
+
+    if (!urls || !urls.length) {
+        contenedor.innerHTML = `
+            <p style="margin:0;color:#666;">
+                ${escaparHTML(mensajeVacio || "No hay fotografías.")}
+            </p>
+        `;
+        return;
+    }
+
+    urls.forEach((url, indice) => {
+        const tarjeta = document.createElement("div");
+        Object.assign(tarjeta.style, {
+            position: "relative",
+            width: "120px",
+            height: "120px",
+            borderRadius: "12px",
+            overflow: "hidden",
+            border: "1px solid #ddd",
+            background: "#f5f5f5"
+        });
+
+        const imagen = document.createElement("img");
+        imagen.src = url;
+        imagen.alt = `Fotografía guardada ${indice + 1}`;
+        Object.assign(imagen.style, {
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+            cursor: "pointer"
+        });
+
+        imagen.addEventListener("click", () => {
+            const modal = document.createElement("div");
+            Object.assign(modal.style, {
+                position: "fixed",
+                inset: "0",
+                zIndex: "99999",
+                background: "rgba(0,0,0,.88)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "20px",
+                boxSizing: "border-box",
+                cursor: "pointer"
+            });
+
+            const grande = document.createElement("img");
+            grande.src = url;
+            grande.alt = imagen.alt;
+            Object.assign(grande.style, {
+                maxWidth: "92vw",
+                maxHeight: "90vh",
+                objectFit: "contain",
+                borderRadius: "12px",
+                background: "#222",
+                cursor: "default"
+            });
+
+            modal.addEventListener("click", () => modal.remove());
+            modal.appendChild(grande);
+            document.body.appendChild(modal);
+        });
+
+        const etiqueta = document.createElement("span");
+        etiqueta.textContent = String(indice + 1);
+        Object.assign(etiqueta.style, {
+            position: "absolute",
+            left: "6px",
+            top: "6px",
+            minWidth: "24px",
+            height: "24px",
+            padding: "0 6px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: "999px",
+            background: "rgba(0,0,0,.65)",
+            color: "#fff",
+            fontSize: "12px",
+            fontWeight: "bold",
+            boxSizing: "border-box"
+        });
+
+        tarjeta.appendChild(imagen);
+        tarjeta.appendChild(etiqueta);
+        contenedor.appendChild(tarjeta);
+    });
+}
+
+async function subirFotosEdicionReparacion(
+    reparacion,
+    archivos
+) {
+    const fotosSubidas = [];
+    const lista = Array.from(archivos || []).filter(
+        archivo =>
+            archivo &&
+            String(archivo.type || "").startsWith("image/")
+    );
+
+    if (!lista.length) return fotosSubidas;
+
+    const numero = reparacion?.numero_reparacion || "reparacion";
+
+    for (let indice = 0; indice < lista.length; indice++) {
+        const archivo = lista[indice];
+        const nombreLimpio = String(archivo.name || "foto.jpg")
+            .replace(/[^\w.\-]/g, "_")
+            .replace(/_+/g, "_");
+
+        const nombreArchivo =
+            `${Date.now()}_${indice + 1}_${nombreLimpio}`;
+
+        const ruta =
+            `private/reparaciones/${numero}/${nombreArchivo}`;
+
+        const { error } = await supabaseClient.storage
+            .from("fotos-recepciones")
+            .upload(ruta, archivo, {
+                cacheControl: "3600",
+                upsert: false
+            });
+
+        if (error) throw error;
+        fotosSubidas.push(ruta);
+    }
+
+    return fotosSubidas;
+}
+
 async function subirFotosRecepcion(
     numero
 ) {
@@ -1830,8 +2076,8 @@ async function mostrarDetalleReparacionInline(
         )
         .addEventListener(
             "click",
-            () => {
-                crearFormularioEdicionInline(
+            async () => {
+                await crearFormularioEdicionInline(
                     reparacion,
                     contenedor
                 );
@@ -1870,10 +2116,80 @@ async function mostrarDetalleReparacionInline(
             }
         );
 }
-function crearFormularioEdicionInline(
+async function crearFormularioEdicionInline(
     reparacion,
     contenedor
 ) {
+    const rutasFotosExistentes =
+        normalizarRutasFotos(
+            reparacion.fotos
+        );
+
+    const sufijo =
+        String(
+            reparacion.id ||
+            reparacion.numero_reparacion ||
+            Date.now()
+        )
+            .replace(
+                /[^\w\-]/g,
+                "_"
+            );
+
+    const idEstado =
+        `editarEstadoInline_${sufijo}`;
+
+    const idDiagnostico =
+        `editarDiagnosticoInline_${sufijo}`;
+
+    const idPruebas =
+        `editarPruebasInline_${sufijo}`;
+
+    const idObservaciones =
+        `editarObservacionesInline_${sufijo}`;
+
+    const idPiezas =
+        `editarPiezasInline_${sufijo}`;
+
+    const idManoObra =
+        `editarManoObraInline_${sufijo}`;
+
+    const idCostePiezas =
+        `editarPiezasCosteInline_${sufijo}`;
+
+    const idCosteManoObra =
+        `editarManoObraCosteInline_${sufijo}`;
+
+    const idOtrosCostes =
+        `editarOtrosCostesInline_${sufijo}`;
+
+    const idEstadoPresupuesto =
+        `editarEstadoPresupuestoInline_${sufijo}`;
+
+    const idTotal =
+        `editarTotalInline_${sufijo}`;
+
+    const idIva =
+        `editarIvaInline_${sufijo}`;
+
+    const idTotalConIva =
+        `editarTotalConIvaInline_${sufijo}`;
+
+    const idCamara =
+        `editarFotosCamara_${sufijo}`;
+
+    const idGaleria =
+        `editarFotosGaleria_${sufijo}`;
+
+    const idGaleriaNuevas =
+        `editarFotosNuevas_${sufijo}`;
+
+    const idResumenFotos =
+        `editarResumenFotos_${sufijo}`;
+
+    const idResumenNuevas =
+        `editarResumenNuevasFotos_${sufijo}`;
+
     contenedor.innerHTML = `
         <div
             style="
@@ -1885,13 +2201,13 @@ function crearFormularioEdicionInline(
             <h3>
                 Editar reparación
             </h3>
+
             <div class="form-field">
                 <label>
                     Estado de la reparación
                 </label>
-                <select
-                    id="editarEstadoInline"
-                >
+
+                <select id="${idEstado}">
                     <option value="Pendiente">
                         Pendiente
                     </option>
@@ -1915,46 +2231,57 @@ function crearFormularioEdicionInline(
                     </option>
                 </select>
             </div>
+
             <div class="form-field">
                 <label>
                     Diagnóstico
                 </label>
+
                 <textarea
-                    id="editarDiagnosticoInline"
+                    id="${idDiagnostico}"
                 ></textarea>
             </div>
+
             <div class="form-field">
                 <label>
                     Pruebas realizadas
                 </label>
+
                 <textarea
-                    id="editarPruebasInline"
+                    id="${idPruebas}"
                 ></textarea>
             </div>
+
             <div class="form-field">
                 <label>
                     Observaciones del taller
                 </label>
+
                 <textarea
-                    id="editarObservacionesInline"
+                    id="${idObservaciones}"
                 ></textarea>
             </div>
+
             <div class="form-field">
                 <label>
                     Piezas
                 </label>
+
                 <textarea
-                    id="editarPiezasInline"
+                    id="${idPiezas}"
                 ></textarea>
             </div>
+
             <div class="form-field">
                 <label>
                     Mano de obra
                 </label>
+
                 <textarea
-                    id="editarManoObraInline"
+                    id="${idManoObra}"
                 ></textarea>
             </div>
+
             <div
                 style="
                     display:grid;
@@ -1970,43 +2297,48 @@ function crearFormularioEdicionInline(
                     <label>
                         Coste de piezas (€)
                     </label>
+
                     <input
                         type="number"
-                        id="editarPiezasCosteInline"
+                        id="${idCostePiezas}"
                         min="0"
                         step="0.01"
                     >
                 </div>
+
                 <div class="form-field">
                     <label>
                         Coste mano de obra (€)
                     </label>
+
                     <input
                         type="number"
-                        id="editarManoObraCosteInline"
+                        id="${idCosteManoObra}"
                         min="0"
                         step="0.01"
                     >
                 </div>
+
                 <div class="form-field">
                     <label>
                         Otros costes (€)
                     </label>
+
                     <input
                         type="number"
-                        id="editarOtrosCostesInline"
+                        id="${idOtrosCostes}"
                         min="0"
                         step="0.01"
                     >
                 </div>
             </div>
+
             <div class="form-field">
                 <label>
                     Estado del presupuesto
                 </label>
-                <select
-                    id="editarEstadoPresupuestoInline"
-                >
+
+                <select id="${idEstadoPresupuesto}">
                     <option value="Pendiente">
                         Pendiente
                     </option>
@@ -2021,36 +2353,164 @@ function crearFormularioEdicionInline(
                     </option>
                 </select>
             </div>
+
             <div class="form-field">
                 <label>
                     Subtotal sin IVA (€)
                 </label>
+
                 <input
                     type="number"
-                    id="editarTotalInline"
+                    id="${idTotal}"
                     readonly
                 >
             </div>
+
             <div class="form-field">
                 <label>
                     IVA (21 %) (€)
                 </label>
+
                 <input
                     type="number"
-                    id="editarIvaInline"
+                    id="${idIva}"
                     readonly
                 >
             </div>
+
             <div class="form-field">
                 <label>
                     Total con IVA (€)
                 </label>
+
                 <input
                     type="number"
-                    id="editarTotalConIvaInline"
+                    id="${idTotalConIva}"
                     readonly
                 >
             </div>
+
+            <div
+                class="form-field"
+                style="margin-top:25px;"
+            >
+                <label>
+                    Fotografías de la reparación
+                </label>
+
+                <div
+                    style="
+                        background:#f8fafc;
+                        border:1px solid #e5e7eb;
+                        border-radius:12px;
+                        padding:18px;
+                    "
+                >
+                    <strong
+                        style="
+                            display:block;
+                            margin-bottom:10px;
+                        "
+                    >
+                        Fotografías actuales
+                    </strong>
+
+                    <p
+                        id="${idResumenFotos}"
+                        style="
+                            margin:0 0 12px;
+                            color:#666;
+                        "
+                    >
+                        ${
+                            rutasFotosExistentes.length
+                                ? `Cargando ${rutasFotosExistentes.length} fotografía${rutasFotosExistentes.length === 1 ? "" : "s"}...`
+                                : "Esta reparación todavía no tiene fotografías."
+                        }
+                    </p>
+
+                    <div
+                        id="${idGaleria}"
+                        style="
+                            display:flex;
+                            gap:12px;
+                            flex-wrap:wrap;
+                            margin-bottom:18px;
+                        "
+                    ></div>
+
+                    <strong
+                        style="
+                            display:block;
+                            margin-bottom:10px;
+                        "
+                    >
+                        Añadir nuevas fotografías
+                    </strong>
+
+                    <div
+                        style="
+                            display:flex;
+                            gap:10px;
+                            flex-wrap:wrap;
+                            margin-bottom:10px;
+                        "
+                    >
+                        <button
+                            type="button"
+                            class="secondary-button"
+                            data-accion="editar-foto-camara"
+                        >
+                            HACER FOTO
+                        </button>
+
+                        <button
+                            type="button"
+                            class="secondary-button"
+                            data-accion="editar-foto-galeria"
+                        >
+                            ELEGIR DE GALERÍA
+                        </button>
+                    </div>
+
+                    <input
+                        type="file"
+                        id="${idCamara}"
+                        accept="image/*"
+                        capture="environment"
+                        multiple
+                        style="display:none;"
+                    >
+
+                    <input
+                        type="file"
+                        id="${idGaleriaNuevas}"
+                        accept="image/*"
+                        multiple
+                        style="display:none;"
+                    >
+
+                    <p
+                        id="${idResumenNuevas}"
+                        style="
+                            margin:8px 0 12px;
+                            color:#666;
+                        "
+                    >
+                        No has añadido fotografías nuevas.
+                    </p>
+
+                    <div
+                        data-galeria-nuevas
+                        style="
+                            display:flex;
+                            gap:12px;
+                            flex-wrap:wrap;
+                        "
+                    ></div>
+                </div>
+            </div>
+
             <div
                 style="
                     display:flex;
@@ -2062,20 +2522,22 @@ function crearFormularioEdicionInline(
                 <button
                     type="button"
                     class="primary-button"
-                    id="guardarEdicionInline"
+                    data-accion="guardar-edicion"
                 >
                     GUARDAR CAMBIOS
                 </button>
+
                 <button
                     type="button"
                     class="secondary-button"
-                    id="cancelarEdicionInline"
+                    data-accion="cancelar-edicion"
                 >
                     CANCELAR
                 </button>
             </div>
+
             <p
-                id="mensajeEdicionInline"
+                data-mensaje-edicion
                 style="
                     margin-top:15px;
                     font-weight:bold;
@@ -2083,120 +2545,176 @@ function crearFormularioEdicionInline(
             ></p>
         </div>
     `;
+
     const estado =
-        document.getElementById(
-            "editarEstadoInline"
+        contenedor.querySelector(
+            `#${idEstado}`
         );
+
     const diagnostico =
-        document.getElementById(
-            "editarDiagnosticoInline"
+        contenedor.querySelector(
+            `#${idDiagnostico}`
         );
+
     const pruebas =
-        document.getElementById(
-            "editarPruebasInline"
+        contenedor.querySelector(
+            `#${idPruebas}`
         );
+
     const observaciones =
-        document.getElementById(
-            "editarObservacionesInline"
+        contenedor.querySelector(
+            `#${idObservaciones}`
         );
+
     const piezas =
-        document.getElementById(
-            "editarPiezasInline"
+        contenedor.querySelector(
+            `#${idPiezas}`
         );
+
     const manoObra =
-        document.getElementById(
-            "editarManoObraInline"
+        contenedor.querySelector(
+            `#${idManoObra}`
         );
+
     const costePiezas =
-        document.getElementById(
-            "editarPiezasCosteInline"
+        contenedor.querySelector(
+            `#${idCostePiezas}`
         );
+
     const costeManoObra =
-        document.getElementById(
-            "editarManoObraCosteInline"
+        contenedor.querySelector(
+            `#${idCosteManoObra}`
         );
+
     const otrosCostes =
-        document.getElementById(
-            "editarOtrosCostesInline"
+        contenedor.querySelector(
+            `#${idOtrosCostes}`
         );
+
     const estadoPresupuesto =
-        document.getElementById(
-            "editarEstadoPresupuestoInline"
+        contenedor.querySelector(
+            `#${idEstadoPresupuesto}`
         );
+
     const total =
-        document.getElementById(
-            "editarTotalInline"
+        contenedor.querySelector(
+            `#${idTotal}`
         );
+
     const iva =
-        document.getElementById(
-            "editarIvaInline"
+        contenedor.querySelector(
+            `#${idIva}`
         );
+
     const totalConIva =
-        document.getElementById(
-            "editarTotalConIvaInline"
+        contenedor.querySelector(
+            `#${idTotalConIva}`
         );
+
+    const resumenFotos =
+        contenedor.querySelector(
+            `#${idResumenFotos}`
+        );
+
+    const galeriaFotos =
+        contenedor.querySelector(
+            `#${idGaleria}`
+        );
+
+    const resumenNuevas =
+        contenedor.querySelector(
+            `#${idResumenNuevas}`
+        );
+
+    const galeriaNuevas =
+        contenedor.querySelector(
+            "[data-galeria-nuevas]"
+        );
+
+    const inputCamara =
+        contenedor.querySelector(
+            `#${idCamara}`
+        );
+
+    const inputGaleria =
+        contenedor.querySelector(
+            `#${idGaleriaNuevas}`
+        );
+
     const mensaje =
-        document.getElementById(
-            "mensajeEdicionInline"
+        contenedor.querySelector(
+            "[data-mensaje-edicion]"
         );
+
+    const botonGuardar =
+        contenedor.querySelector(
+            '[data-accion="guardar-edicion"]'
+        );
+
+    let archivosFotosNuevas = [];
+
     estado.value =
         reparacion.estado_reparacion ||
         "Pendiente";
+
     diagnostico.value =
         reparacion.diagnostico ||
         "";
+
     pruebas.value =
         reparacion.pruebas_realizadas ||
         "";
+
     observaciones.value =
         reparacion.observaciones_taller ||
         "";
+
     piezas.value =
         reparacion.piezas ||
         "";
+
     manoObra.value =
         reparacion.mano_obra ||
         "";
+
     costePiezas.value =
         reparacion.coste_piezas ||
         0;
+
     costeManoObra.value =
         reparacion.coste_mano_obra ||
         0;
+
     otrosCostes.value =
         reparacion.otros_costes ||
         0;
+
     estadoPresupuesto.value =
         reparacion.estado_presupuesto ||
         "Pendiente";
+
     function calcularTotal() {
         const subtotal =
-            (
-                Number(
-                    costePiezas.value
-                ) || 0
-            ) +
-            (
-                Number(
-                    costeManoObra.value
-                ) || 0
-            ) +
-            (
-                Number(
-                    otrosCostes.value
-                ) || 0
-            );
+            (Number(costePiezas.value) || 0) +
+            (Number(costeManoObra.value) || 0) +
+            (Number(otrosCostes.value) || 0);
+
         const importeIva =
             subtotal * 0.21;
+
         const totalFinal =
             subtotal + importeIva;
+
         total.value =
             subtotal.toFixed(2);
+
         iva.value =
             importeIva.toFixed(2);
+
         totalConIva.value =
             totalFinal.toFixed(2);
     }
+
     [
         costePiezas,
         costeManoObra,
@@ -2209,97 +2727,408 @@ function crearFormularioEdicionInline(
             );
         }
     );
-    calcularTotal();
-    document
-        .getElementById(
-            "guardarEdicionInline"
+
+    function renderizarNuevasFotos() {
+        galeriaNuevas.innerHTML = "";
+
+        const cantidad =
+            archivosFotosNuevas.length;
+
+        resumenNuevas.textContent =
+            cantidad === 0
+                ? "No has añadido fotografías nuevas."
+                : `${cantidad} fotografía${cantidad === 1 ? "" : "s"} nueva${cantidad === 1 ? "" : "s"} pendiente${cantidad === 1 ? "" : "s"} de guardar.`;
+
+        archivosFotosNuevas.forEach(
+            (archivo, indice) => {
+                const tarjeta =
+                    document.createElement("div");
+
+                Object.assign(
+                    tarjeta.style,
+                    {
+                        position: "relative",
+                        width: "120px",
+                        height: "120px",
+                        borderRadius: "12px",
+                        overflow: "hidden",
+                        border: "1px solid #ddd",
+                        background: "#f5f5f5"
+                    }
+                );
+
+                const imagen =
+                    document.createElement("img");
+
+                const objectUrl =
+                    URL.createObjectURL(
+                        archivo
+                    );
+
+                imagen.src =
+                    objectUrl;
+
+                imagen.alt =
+                    `Nueva fotografía ${indice + 1}`;
+
+                Object.assign(
+                    imagen.style,
+                    {
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block"
+                    }
+                );
+
+                imagen.addEventListener(
+                    "load",
+                    () => {
+                        URL.revokeObjectURL(
+                            objectUrl
+                        );
+                    },
+                    {
+                        once: true
+                    }
+                );
+
+                const eliminar =
+                    document.createElement("button");
+
+                eliminar.type =
+                    "button";
+
+                eliminar.textContent =
+                    "×";
+
+                eliminar.title =
+                    "Quitar fotografía";
+
+                Object.assign(
+                    eliminar.style,
+                    {
+                        position: "absolute",
+                        top: "5px",
+                        right: "5px",
+                        width: "30px",
+                        height: "30px",
+                        padding: "0",
+                        border: "none",
+                        borderRadius: "50%",
+                        background: "#dc2626",
+                        color: "#fff",
+                        fontSize: "20px",
+                        lineHeight: "30px"
+                    }
+                );
+
+                eliminar.addEventListener(
+                    "click",
+                    () => {
+                        archivosFotosNuevas.splice(
+                            indice,
+                            1
+                        );
+
+                        renderizarNuevasFotos();
+                    }
+                );
+
+                tarjeta.appendChild(
+                    imagen
+                );
+
+                tarjeta.appendChild(
+                    eliminar
+                );
+
+                galeriaNuevas.appendChild(
+                    tarjeta
+                );
+            }
+        );
+    }
+
+    function añadirArchivosFotosNuevas(
+        lista
+    ) {
+        const imagenes =
+            Array.from(
+                lista || []
+            ).filter(
+                archivo =>
+                    archivo &&
+                    String(
+                        archivo.type || ""
+                    ).startsWith("image/")
+            );
+
+        if (!imagenes.length) {
+            return;
+        }
+
+        archivosFotosNuevas.push(
+            ...imagenes
+        );
+
+        renderizarNuevasFotos();
+    }
+
+    inputCamara.addEventListener(
+        "change",
+        () => {
+            añadirArchivosFotosNuevas(
+                inputCamara.files
+            );
+
+            inputCamara.value =
+                "";
+        }
+    );
+
+    inputGaleria.addEventListener(
+        "change",
+        () => {
+            añadirArchivosFotosNuevas(
+                inputGaleria.files
+            );
+
+            inputGaleria.value =
+                "";
+        }
+    );
+
+    contenedor
+        .querySelector(
+            '[data-accion="editar-foto-camara"]'
         )
         .addEventListener(
             "click",
-            async () => {
-                mensaje.textContent =
-                    "Guardando cambios...";
-                mensaje.style.color =
-                    "#222";
+            () => {
+                inputCamara.click();
+            }
+        );
+
+    contenedor
+        .querySelector(
+            '[data-accion="editar-foto-galeria"]'
+        )
+        .addEventListener(
+            "click",
+            () => {
+                inputGaleria.click();
+            }
+        );
+
+    calcularTotal();
+    renderizarNuevasFotos();
+
+    if (rutasFotosExistentes.length) {
+        try {
+            const urlsExistentes =
+                await cargarFotosRecepcion(
+                    rutasFotosExistentes
+                );
+
+            pintarMiniaturasEdicion(
+                galeriaFotos,
+                urlsExistentes,
+                "No se han podido cargar las fotografías existentes."
+            );
+
+            resumenFotos.textContent =
+                `${urlsExistentes.length} fotografía${urlsExistentes.length === 1 ? "" : "s"} guardada${urlsExistentes.length === 1 ? "" : "s"}.`;
+        } catch (error) {
+            console.error(error);
+
+            pintarMiniaturasEdicion(
+                galeriaFotos,
+                [],
+                "No se han podido cargar las fotografías existentes."
+            );
+
+            resumenFotos.textContent =
+                "No se han podido cargar las fotografías existentes.";
+        }
+    } else {
+        pintarMiniaturasEdicion(
+            galeriaFotos,
+            [],
+            "Esta reparación todavía no tiene fotografías."
+        );
+    }
+
+    botonGuardar.addEventListener(
+        "click",
+        async () => {
+            mensaje.textContent =
+                "Guardando cambios...";
+
+            mensaje.style.color =
+                "#222";
+
+            botonGuardar.disabled =
+                true;
+
+            botonGuardar.textContent =
+                "GUARDANDO...";
+
+            let rutasFotosNuevasSubidas =
+                [];
+
+            try {
+                const rutasExistentes =
+                    normalizarRutasFotos(
+                        reparacion.fotos
+                    );
+
+                rutasFotosNuevasSubidas =
+                    await subirFotosEdicionReparacion(
+                        reparacion,
+                        archivosFotosNuevas
+                    );
+
+                const rutasFotosFinales = [
+                    ...rutasExistentes,
+                    ...rutasFotosNuevasSubidas
+                ];
+
                 const datos = {
                     estado_reparacion:
                         estado.value,
+
                     diagnostico:
                         diagnostico.value.trim(),
+
                     pruebas_realizadas:
                         pruebas.value.trim(),
+
                     observaciones_taller:
                         observaciones.value.trim(),
+
                     piezas:
                         piezas.value.trim(),
+
                     mano_obra:
                         manoObra.value.trim(),
+
                     coste_piezas:
                         Number(
                             costePiezas.value
                         ) || 0,
+
                     coste_mano_obra:
                         Number(
                             costeManoObra.value
                         ) || 0,
+
                     otros_costes:
                         Number(
                             otrosCostes.value
                         ) || 0,
+
                     total_presupuesto:
                         Number(
                             total.value
                         ) || 0,
+
                     estado_presupuesto:
-                        estadoPresupuesto.value
+                        estadoPresupuesto.value,
+
+                    fotos:
+                        rutasFotosFinales
                 };
-                try {
-                    const {
-                        error
-                    } =
-                        await supabaseClient
-                            .from(
-                                "recepciones"
-                            )
-                            .update(
-                                datos
-                            )
-                            .eq(
-                                "id",
-                                reparacion.id
-                            );
-                    if (error) {
-                        throw error;
-                    }
-                    Object.assign(
-                        reparacion,
-                        datos
-                    );
-                    mensaje.textContent =
-                        "Cambios guardados correctamente.";
-                    mensaje.style.color =
-                        "#15803d";
-                    setTimeout(
-                        () => {
-                            contenedor.style.display = "none";
-                        },
-                        500
-                    );
-                } catch (error) {
-                    console.error(
-                        error
-                    );
-                    mensaje.textContent =
-                        "Error al guardar: " +
-                        error.message;
-                    mensaje.style.color =
-                        "#dc2626";
+
+                const {
+                    error
+                } =
+                    await supabaseClient
+                        .from("recepciones")
+                        .update(
+                            datos
+                        )
+                        .eq(
+                            "id",
+                            reparacion.id
+                        );
+
+                if (error) {
+                    throw error;
                 }
+
+                Object.assign(
+                    reparacion,
+                    datos
+                );
+
+                mensaje.textContent =
+                    rutasFotosNuevasSubidas.length
+                        ? `Cambios guardados correctamente. Se añadieron ${rutasFotosNuevasSubidas.length} fotografía${rutasFotosNuevasSubidas.length === 1 ? "" : "s"}.`
+                        : "Cambios guardados correctamente.";
+
+                mensaje.style.color =
+                    "#15803d";
+
+                setTimeout(
+                    async () => {
+                        await mostrarDetalleReparacionInline(
+                            reparacion,
+                            contenedor
+                        );
+                    },
+                    650
+                );
+            } catch (error) {
+                console.error(error);
+
+                if (
+                    rutasFotosNuevasSubidas.length
+                ) {
+                    const {
+                        error:
+                            errorLimpiezaFotos
+                    } =
+                        await supabaseClient.storage
+                            .from(
+                                "fotos-recepciones"
+                            )
+                            .remove(
+                                rutasFotosNuevasSubidas
+                            );
+
+                    if (
+                        errorLimpiezaFotos
+                    ) {
+                        console.error(
+                            "No se pudieron limpiar las fotos subidas tras el error:",
+                            errorLimpiezaFotos
+                        );
+                    }
+                }
+
+                mensaje.textContent =
+                    "Error al guardar: " +
+                    (
+                        error.message ||
+                        "Error desconocido."
+                    );
+
+                mensaje.style.color =
+                    "#dc2626";
+            } finally {
+                botonGuardar.disabled =
+                    false;
+
+                botonGuardar.textContent =
+                    "GUARDAR CAMBIOS";
             }
-        );
-    document
-        .getElementById(
-            "cancelarEdicionInline"
+        }
+    );
+
+    contenedor
+        .querySelector(
+            '[data-accion="cancelar-edicion"]'
         )
         .addEventListener(
             "click",
@@ -2311,6 +3140,7 @@ function crearFormularioEdicionInline(
             }
         );
 }
+
 async function cargarPresupuestos() {
     mensajePresupuestos.textContent = "";
     listaPresupuestos.innerHTML = "";
