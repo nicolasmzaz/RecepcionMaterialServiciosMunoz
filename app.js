@@ -371,20 +371,198 @@ async function obtenerTodasLasReparaciones() {
     if (error) throw error; return data || [];
 }
 async function cargarClientes() {
-    const lista=document.getElementById("listaClientes"), mensaje=document.getElementById("mensajeClientes"), detalle=document.getElementById("detalleCliente");
-    lista.innerHTML=""; mensaje.textContent="Cargando clientes..."; detalle.style.display="none";
+    const lista = document.getElementById("listaClientes");
+    const mensaje = document.getElementById("mensajeClientes");
+    const detalleGlobal = document.getElementById("detalleCliente");
+
+    lista.innerHTML = "";
+    mensaje.textContent = "Cargando clientes...";
+    if (detalleGlobal) detalleGlobal.style.display = "none";
+
     try {
-        const reparaciones=await obtenerTodasLasReparaciones(), mapa=new Map();
-        reparaciones.forEach(r=>{const nombre=(r.cliente||"Sin cliente").trim()||"Sin cliente", clave=`${nombre.toLowerCase()}|${(r.telefono||"").trim()}`; if(!mapa.has(clave)) mapa.set(clave,{cliente:nombre,telefono:r.telefono||"",email:r.email||"",reparaciones:[]}); const x=mapa.get(clave); x.email=x.email||r.email||""; x.reparaciones.push(r);});
-        const clientes=[...mapa.values()].sort((a,b)=>a.cliente.localeCompare(b.cliente,"es"));
-        if(!clientes.length){lista.innerHTML="<p>No hay clientes registrados.</p>"; mensaje.textContent=""; return;}
-        clientes.forEach(cliente=>{const tarjeta=document.createElement("div"); tarjeta.className="reparacion-card"; tarjeta.innerHTML=`<div><strong>${escaparHTML(cliente.cliente)}</strong><p>${escaparHTML(cliente.telefono||"Sin teléfono")}</p><p>${escaparHTML(cliente.email||"Sin email")}</p></div><div style="text-align:right;"><p><strong>${cliente.reparaciones.length}</strong> reparación${cliente.reparaciones.length===1?"":"es"}</p><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;"><button type="button" class="secondary-button btn-ver-cliente">VER REPARACIONES</button><button type="button" class="secondary-button btn-editar-cliente">EDITAR CLIENTE</button></div></div>`; tarjeta.querySelector(".btn-ver-cliente").addEventListener("click",()=>mostrarDetalleCliente(cliente)); tarjeta.querySelector(".btn-editar-cliente").addEventListener("click",()=>editarCliente(cliente)); lista.appendChild(tarjeta);});
-        mensaje.textContent=`${clientes.length} cliente${clientes.length===1?"":"s"} encontrado${clientes.length===1?"":"s"}.`;
-    } catch(error){console.error(error);mensaje.textContent=error.message||"No se han podido cargar los clientes.";}
+        const reparaciones = await obtenerTodasLasReparaciones();
+        const mapa = new Map();
+
+        reparaciones.forEach(r => {
+            const nombre = (r.cliente || "Sin cliente").trim() || "Sin cliente";
+            const clave = `${nombre.toLowerCase()}|${(r.telefono || "").trim()}`;
+
+            if (!mapa.has(clave)) {
+                mapa.set(clave, {
+                    cliente: nombre,
+                    telefono: r.telefono || "",
+                    email: r.email || "",
+                    reparaciones: []
+                });
+            }
+
+            const x = mapa.get(clave);
+            x.email = x.email || r.email || "";
+            x.reparaciones.push(r);
+        });
+
+        const clientes = [...mapa.values()].sort((a, b) =>
+            a.cliente.localeCompare(b.cliente, "es")
+        );
+
+        if (!clientes.length) {
+            lista.innerHTML = "<p>No hay clientes registrados.</p>";
+            mensaje.textContent = "";
+            return;
+        }
+
+        clientes.forEach(cliente => {
+            const tarjeta = document.createElement("div");
+            tarjeta.className = "reparacion-card";
+            // Conservamos exactamente la distribución visual original de la tarjeta.
+            // Solo permitimos que el detalle oculto pueda ocupar una segunda línea al abrirse.
+            tarjeta.style.flexWrap = "wrap";
+
+            tarjeta.innerHTML = `
+                <div>
+                    <strong>${escaparHTML(cliente.cliente)}</strong>
+                    <p>${escaparHTML(cliente.telefono || "Sin teléfono")}</p>
+                    <p>${escaparHTML(cliente.email || "Sin email")}</p>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;">
+                    <span><strong>${cliente.reparaciones.length}</strong> reparación${cliente.reparaciones.length === 1 ? "" : "es"}</span>
+                    <button type="button" class="secondary-button btn-ver-cliente">VER REPARACIONES</button>
+                    <button type="button" class="secondary-button btn-editar-cliente">EDITAR CLIENTE</button>
+                </div>
+                <div class="detalle-cliente-inline" style="display:none;flex:0 0 100%;width:100%;box-sizing:border-box;margin-top:18px;padding-top:18px;border-top:1px solid #e5e7eb;"></div>
+            `;
+
+            const botonVer = tarjeta.querySelector(".btn-ver-cliente");
+            const botonEditar = tarjeta.querySelector(".btn-editar-cliente");
+            const detalleInline = tarjeta.querySelector(".detalle-cliente-inline");
+
+            botonVer.addEventListener("click", () => {
+                if (detalleInline.style.display !== "none") {
+                    detalleInline.style.display = "none";
+                    detalleInline.innerHTML = "";
+                    botonVer.textContent = "VER REPARACIONES";
+                    return;
+                }
+
+                // Cerrar cualquier otro cliente abierto.
+                lista.querySelectorAll(".detalle-cliente-inline").forEach(otroDetalle => {
+                    if (otroDetalle !== detalleInline) {
+                        otroDetalle.style.display = "none";
+                        otroDetalle.innerHTML = "";
+                    }
+                });
+                lista.querySelectorAll(".btn-ver-cliente").forEach(otroBoton => {
+                    if (otroBoton !== botonVer) {
+                        otroBoton.textContent = "VER REPARACIONES";
+                    }
+                });
+
+                botonVer.textContent = "CERRAR REPARACIONES";
+                mostrarDetalleCliente(cliente, detalleInline, tarjeta);
+            });
+
+            botonEditar.addEventListener("click", () => {
+                lista.querySelectorAll(".detalle-cliente-inline").forEach(otroDetalle => {
+                    if (otroDetalle !== detalleInline) {
+                        otroDetalle.style.display = "none";
+                        otroDetalle.innerHTML = "";
+                    }
+                });
+                lista.querySelectorAll(".btn-ver-cliente").forEach(otroBoton => {
+                    if (otroBoton !== botonVer) {
+                        otroBoton.textContent = "VER REPARACIONES";
+                    }
+                });
+
+                detalleInline.style.display = "block";
+                editarCliente(cliente, detalleInline, tarjeta);
+            });
+
+            lista.appendChild(tarjeta);
+        });
+
+        mensaje.textContent = `${clientes.length} cliente${clientes.length === 1 ? "" : "s"} encontrado${clientes.length === 1 ? "" : "s"}.`;
+    } catch (error) {
+        console.error(error);
+        mensaje.textContent = error.message || "No se han podido cargar los clientes.";
+    }
 }
-function mostrarDetalleCliente(cliente){const detalle=document.getElementById("detalleCliente"), contenido=document.getElementById("contenidoDetalleCliente"); contenido.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;"><button type="button" class="primary-button" id="editarClienteDesdeDetalle">EDITAR CLIENTE</button></div><p><strong>Cliente:</strong> ${escaparHTML(cliente.cliente)}</p><p><strong>Teléfono:</strong> ${escaparHTML(cliente.telefono||"-")}</p><p><strong>Email:</strong> ${escaparHTML(cliente.email||"-")}</p><hr><h4 style="margin-top:18px;">Reparaciones del cliente</h4>`; document.getElementById("editarClienteDesdeDetalle").addEventListener("click",()=>editarCliente(cliente)); cliente.reparaciones.forEach(r=>contenido.appendChild(crearTarjetaResultado(r))); detalle.style.display="block"; detalle.scrollIntoView({behavior:"smooth",block:"start"});}
-function editarCliente(cliente){const detalle=document.getElementById("detalleCliente"), contenido=document.getElementById("contenidoDetalleCliente"); contenido.innerHTML=`<h4 style="margin-top:0;">Editar datos del cliente</h4><div class="form-grid"><div class="form-field"><label for="editarClienteNombre">Nombre</label><input type="text" id="editarClienteNombre" value="${escaparHTML(cliente.cliente||"")}"></div><div class="form-field"><label for="editarClienteTelefono">Teléfono</label><input type="tel" id="editarClienteTelefono" value="${escaparHTML(cliente.telefono||"")}"></div><div class="form-field"><label for="editarClienteEmail">Email</label><input type="email" id="editarClienteEmail" value="${escaparHTML(cliente.email||"")}"></div></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;"><button type="button" class="primary-button" id="guardarDatosCliente">GUARDAR CAMBIOS</button><button type="button" class="secondary-button" id="cancelarEdicionCliente">CANCELAR</button></div><p id="mensajeEdicionCliente" style="margin-top:15px;"></p>`; document.getElementById("guardarDatosCliente").addEventListener("click",()=>guardarDatosCliente(cliente)); document.getElementById("cancelarEdicionCliente").addEventListener("click",()=>mostrarDetalleCliente(cliente)); detalle.style.display="block"; detalle.scrollIntoView({behavior:"smooth",block:"start"});}
-async function guardarDatosCliente(cliente){const nombre=document.getElementById("editarClienteNombre").value.trim(), telefono=document.getElementById("editarClienteTelefono").value.trim(), email=document.getElementById("editarClienteEmail").value.trim(), mensaje=document.getElementById("mensajeEdicionCliente"), boton=document.getElementById("guardarDatosCliente"); if(!nombre){mensaje.textContent="El nombre del cliente es obligatorio.";mensaje.style.color="#dc2626";return;} boton.disabled=true; boton.textContent="GUARDANDO..."; mensaje.textContent=""; try{for(const reparacion of cliente.reparaciones){const {error}=await supabaseClient.from("recepciones").update({cliente:nombre,telefono,email}).eq("id",reparacion.id);if(error)throw error;Object.assign(reparacion,{cliente:nombre,telefono,email});} cliente.cliente=nombre; cliente.telefono=telefono; cliente.email=email; mensaje.textContent="Datos del cliente actualizados correctamente."; mensaje.style.color="#15803d"; await cargarClientes(); document.getElementById("detalleCliente").style.display="none";}catch(error){console.error(error);mensaje.textContent=error.message||"No se han podido actualizar los datos del cliente.";mensaje.style.color="#dc2626";}finally{boton.disabled=false;boton.textContent="GUARDAR CAMBIOS";}}
+
+function mostrarDetalleCliente(cliente, contenedorInline = null, tarjeta = null) {
+    const detalle = contenedorInline || document.getElementById("detalleCliente");
+    const contenido = contenedorInline || document.getElementById("contenidoDetalleCliente");
+
+    contenido.innerHTML = `
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
+            <button type="button" class="primary-button" data-accion="editar-cliente-desde-detalle">EDITAR CLIENTE</button>
+        </div>
+        <p><strong>Cliente:</strong> ${escaparHTML(cliente.cliente)}</p>
+        <p><strong>Teléfono:</strong> ${escaparHTML(cliente.telefono || "-")}</p>
+        <p><strong>Email:</strong> ${escaparHTML(cliente.email || "-")}</p>
+        <hr>
+        <h4 style="margin-top:18px;">Reparaciones del cliente</h4>
+    `;
+
+    contenido
+        .querySelector('[data-accion="editar-cliente-desde-detalle"]')
+        .addEventListener("click", () => {
+            editarCliente(cliente, detalle, tarjeta);
+        });
+
+    cliente.reparaciones.forEach(r => contenido.appendChild(crearTarjetaResultado(r)));
+    detalle.style.display = "block";
+
+    if (!contenedorInline) {
+        detalle.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+}
+
+function editarCliente(cliente, contenedorInline = null, tarjeta = null) {
+    const detalle = contenedorInline || document.getElementById("detalleCliente");
+    const contenido = contenedorInline || document.getElementById("contenidoDetalleCliente");
+
+    contenido.innerHTML = `
+        <h4 style="margin-top:0;">Editar datos del cliente</h4>
+        <div class="form-grid">
+            <div class="form-field">
+                <label for="editarClienteNombre">Nombre</label>
+                <input type="text" id="editarClienteNombre" value="${escaparHTML(cliente.cliente || "")}">
+            </div>
+            <div class="form-field">
+                <label for="editarClienteTelefono">Teléfono</label>
+                <input type="tel" id="editarClienteTelefono" value="${escaparHTML(cliente.telefono || "")}">
+            </div>
+            <div class="form-field">
+                <label for="editarClienteEmail">Email</label>
+                <input type="email" id="editarClienteEmail" value="${escaparHTML(cliente.email || "")}">
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;">
+            <button type="button" class="primary-button" id="guardarDatosCliente">GUARDAR CAMBIOS</button>
+            <button type="button" class="secondary-button" id="cancelarEdicionCliente">CANCELAR</button>
+        </div>
+        <p id="mensajeEdicionCliente" style="margin-top:15px;"></p>
+    `;
+
+    document.getElementById("guardarDatosCliente").addEventListener("click", () =>
+        guardarDatosCliente(cliente)
+    );
+
+    document.getElementById("cancelarEdicionCliente").addEventListener("click", () => {
+        if (contenedorInline) {
+            mostrarDetalleCliente(cliente, contenedorInline, tarjeta);
+        } else {
+            mostrarDetalleCliente(cliente);
+        }
+    });
+
+    detalle.style.display = "block";
+
+    if (!contenedorInline) {
+        detalle.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+}
+
 async function prepararBusqueda(){const resultados=document.getElementById("resultadosBusqueda"),mensaje=document.getElementById("mensajeBusqueda"); resultados.innerHTML=""; mensaje.textContent="Cargando..."; try{window.__reparacionesBusqueda=await obtenerTodasLasReparaciones(); ejecutarBusqueda(); mensaje.textContent=`${window.__reparacionesBusqueda.length} reparación${window.__reparacionesBusqueda.length===1?"":"es"} disponible${window.__reparacionesBusqueda.length===1?"":"s"}.`;}catch(error){console.error(error);mensaje.textContent=error.message||"No se han podido cargar las reparaciones.";}}
 function ejecutarBusqueda(){const resultados=document.getElementById("resultadosBusqueda"); if(!resultados)return; const texto=(document.getElementById("campoBuscar")?.value||"").trim().toLowerCase(), datos=window.__reparacionesBusqueda||[], filtrados=!texto?datos:datos.filter(r=>[r.numero_reparacion,r.cliente,r.telefono,r.email,r.tipo_material,r.marca,r.modelo,r.numero_serie,r.estado_reparacion].some(v=>String(v||"").toLowerCase().includes(texto))); resultados.innerHTML=""; if(!filtrados.length){resultados.innerHTML="<p>No se han encontrado resultados.</p>";return;} filtrados.forEach(r=>resultados.appendChild(crearTarjetaResultado(r)));}
 function cargarConfiguracion(){document.getElementById("configEmpresa").value=localStorage.getItem("configEmpresa")||"SERVICIOS MUÑOZ"; document.getElementById("configIva").value=localStorage.getItem("configIva")||"21"; document.getElementById("adminUsuarioActual").textContent=usuarioActual||"-";}
@@ -3198,15 +3376,34 @@ async function cargarPresupuestos() {
                 </p>
                 <button
                     type="button"
-                    class="secondary-button"
+                    class="secondary-button btn-ver-presupuesto"
                 >
                     VER DETALLE
                 </button>
             </div>
+            <div
+                class="detalle-presupuesto-inline"
+                style="display:none;width:100%;box-sizing:border-box;"
+            ></div>
         `;
-        const boton = tarjeta.querySelector("button");
-        boton.addEventListener("click", () => {
-            mostrarDetallePresupuesto(reparacion);
+        const boton = tarjeta.querySelector(".btn-ver-presupuesto");
+        const detalle = tarjeta.querySelector(".detalle-presupuesto-inline");
+        boton.addEventListener("click", async () => {
+            const abierto = detalle.style.display === "block";
+            document.querySelectorAll(".detalle-presupuesto-inline").forEach(otro => {
+                if (otro !== detalle) otro.style.display = "none";
+            });
+            document.querySelectorAll(".btn-ver-presupuesto").forEach(otro => {
+                if (otro !== boton) otro.textContent = "VER DETALLE";
+            });
+            if (abierto) {
+                detalle.style.display = "none";
+                boton.textContent = "VER DETALLE";
+                return;
+            }
+            detalle.style.display = "block";
+            boton.textContent = "CERRAR DETALLE";
+            await mostrarDetallePresupuesto(reparacion, detalle);
         });
         listaPresupuestos.appendChild(tarjeta);
     });
@@ -3567,20 +3764,40 @@ async function cargarAlbaranes() {
                 <p><strong>${Number(albaran.total || 0).toFixed(2)} €</strong></p>
                 <button type="button" class="secondary-button btn-ver-albaran">VER DETALLE</button>
             </div>
+            <div
+                class="detalle-albaran-inline"
+                style="display:none;width:100%;box-sizing:border-box;"
+            ></div>
         `;
-        tarjeta.querySelector(".btn-ver-albaran").addEventListener(
-            "click",
-            () => mostrarDetalleAlbaran(albaran)
-        );
+        const botonAlbaran = tarjeta.querySelector(".btn-ver-albaran");
+        const detalleAlbaranInline = tarjeta.querySelector(".detalle-albaran-inline");
+        botonAlbaran.addEventListener("click", async () => {
+            const abierto = detalleAlbaranInline.style.display === "block";
+            document.querySelectorAll(".detalle-albaran-inline").forEach(otro => {
+                if (otro !== detalleAlbaranInline) otro.style.display = "none";
+            });
+            document.querySelectorAll(".btn-ver-albaran").forEach(otro => {
+                if (otro !== botonAlbaran) otro.textContent = "VER DETALLE";
+            });
+            if (abierto) {
+                detalleAlbaranInline.style.display = "none";
+                botonAlbaran.textContent = "VER DETALLE";
+                return;
+            }
+            detalleAlbaranInline.style.display = "block";
+            botonAlbaran.textContent = "CERRAR DETALLE";
+            await mostrarDetalleAlbaran(albaran, detalleAlbaranInline);
+        });
         listaAlbaranes.appendChild(tarjeta);
     });
 }
 
-function mostrarDetalleAlbaran(albaran) {
-    detalleAlbaran.style.display = "block";
+function mostrarDetalleAlbaran(albaran, contenedor = contenidoDetalleAlbaran) {
+    const inline = contenedor !== contenidoDetalleAlbaran;
+    if (!inline) detalleAlbaran.style.display = "block";
     const items = Array.isArray(albaran.items) ? albaran.items : [];
 
-    contenidoDetalleAlbaran.innerHTML = `
+    contenedor.innerHTML = `
         <div class="albaran-detalle-cabecera">
             <div>
                 <p><strong>Número:</strong> ${escaparHTML(albaran.numero_albaran || "")}</p>
@@ -3618,7 +3835,7 @@ function mostrarDetalleAlbaran(albaran) {
         () => imprimirAlbaran(albaran)
     );
 
-    detalleAlbaran.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!inline) detalleAlbaran.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function imprimirAlbaran(albaran) {
@@ -4182,9 +4399,10 @@ h1 {
         700
     );
 }
-function mostrarDetallePresupuesto(reparacion) {
-    detallePresupuesto.style.display = "block";
-    contenidoDetallePresupuesto.innerHTML = `
+function mostrarDetallePresupuesto(reparacion, contenedor = contenidoDetallePresupuesto) {
+    const inline = contenedor !== contenidoDetallePresupuesto;
+    if (!inline) detallePresupuesto.style.display = "block";
+    contenedor.innerHTML = `
         <p>
             <strong>Número de reparación:</strong>
             ${escaparHTML(reparacion.numero_reparacion)}
